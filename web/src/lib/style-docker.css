@@ -1,0 +1,327 @@
+@font-face {
+    font-family: 'Roboto Mono';
+    src: url('/RobotoMono-Regular.woff2') format('woff2'),
+        url('/RobotoMono-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Add Docker container specific styles */
+.container-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 0.5fr));
+    gap: 1rem;
+}
+@media screen and (max-width: 768px) {
+    .container-grid {
+        display: block;
+    }
+    
+}
+
+.container-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.container-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.container-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.8rem;
+}
+
+.container-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.container-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.container-status.running {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.container-status.exited {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.container-status.created {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.container-status.paused {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.container-image {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+    max-width: 80%;
+    overflow: hidden;
+}
+
+.container-detail {
+    margin-bottom: 0.5rem;
+}
+
+.container-detail-label {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.container-port {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin-right: 8px;
+    margin-top: 5px;
+    display: inline-block;
+    font-size: 0.9rem;
+}
+
+.container-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.container-filter-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #e1e1e3;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.container-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.container-filter-btn.active {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+.container-search {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #e1e1e3;
+    outline: none;
+    width: 250px;
+}
+
+.container-search:focus {
+    border-color: rgba(74, 222, 128, 0.5);
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+.container-usage {
+    height: 4px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+    margin-bottom: 12px;
+}
+
+.container-cpu-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #4ade80);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.container-memory-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #8b5cf6, #ec4899);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.logs-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.logs-modal {
+    width: 80%;
+    height: 85%;
+    background-color: rgba(26, 26, 26, 0.95);
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px 0 rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+@media (max-width: 920px) {
+    .logs-modal {
+        width: 100%;
+        height: 97%;
+    }
+}
+
+.logs-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.logs-modal-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logs-modal-header h3 {
+    margin: 0;
+    color: #e1e1e3;
+    font-size: 1.2rem;
+}
+
+.logs-close-button {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.logs-close-button:hover {
+    color: #e1e1e3;
+}
+
+.logs-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 0 0 15px 15px;
+}
+
+.logs-container {
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-text{
+    font-family: 'Roboto Mono', monospace;
+}
+
+.logs-loading, .logs-empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #aaa;
+}
+
+.log-line {
+    padding: 3px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.log-line.stdout {
+    color: #e1e1e3;
+}
+
+.log-line.stderr {
+    color: #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.05);
+}
+
+.log-timestamp {
+    font-family: 'Roboto Mono', monospace;
+    color: #3b82f6;
+    margin-right: 20px;
+    display: inline-block;
+}
+
+.container-logs-button {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.container-logs-button:hover {
+    background: rgba(74, 222, 128, 0.3);
+    border-color: rgba(74, 222, 128, 0.4);
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+}
+
+/* Add these styles to your existing CSS file */
+
+.logs-reload-button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.logs-reload-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
