@@ -1,11 +1,13 @@
 <script lang="ts">
 	import chartjs, { type ChartConfiguration } from 'chart.js/auto';
 
-	let { data, labels, colors, bg_colors, fills, yAxisLabel, autoScale, } = $props();
+	let { timestamps, data, labels, colors, bg_colors, fills, yAxisLabel, autoScale, } = $props();
 
 	let chartCanvas: HTMLCanvasElement;
 	var chart: chartjs;
 	const maxDataPoints = 60;
+
+	let timestamps_padded = $derived(Array(maxDataPoints - timestamps.length).fill(0).concat(timestamps));
 
 	let initialized = false;
 	const getDataset = (label: string, color: string, bg_color: string, fill: boolean) => ({
@@ -58,9 +60,9 @@
 					},
 					ticks: {
 						color: '#e1e1e3',
-						// format: 'HH:mm:ss',
 						callback: function (_: any, index: number) {
-							return index - maxDataPoints <= 0 ? 2 * (index - maxDataPoints) + 's' : '';
+							if (timestamps_padded[index] === 0) return '';
+							return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
 						}
 					}
 				}

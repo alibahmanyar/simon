@@ -22,6 +22,7 @@
 			: null
 	);
 
+	let timestamps = $derived(gdata.prevDataPoints.map((d) => d.t));
 	let cpu_data = $derived(gdata.prevDataPoints.map((d) => d.cpu.avg_usage.toFixed(1)));
 	let cores = $derived(gdata.prevDataPoints.map((d) => d.cpu.usage));
 	let sys_load_1 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[0]));
@@ -163,7 +164,7 @@
 		</div>
 		<div style="min-height: 40vh;">
 			<CpuChart
-				name="CPU"
+				{timestamps}
 				autoScale={false}
 				yAxisLabel="CPU Usage (%)"
 				data={cpu_data}
@@ -179,6 +180,7 @@
 		<p class="card-title">Memory Usage</p>
 		<div style="min-height: 40vh;">
 			<Chart
+				{timestamps}
 				yAxisLabel="Memory Usage (%)"
 				autoScale={false}
 				data={[
@@ -198,6 +200,7 @@
 		<p class="card-title">System Load</p>
 		<div style="min-height: 30vh;">
 			<Chart
+				{timestamps}
 				yAxisLabel="Load Average"
 				autoScale={true}
 				data={[sys_load_1, sys_load_5, sys_load_15]}

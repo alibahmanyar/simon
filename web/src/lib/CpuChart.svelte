@@ -1,11 +1,14 @@
 <script lang="ts">
 	import chartjs, { type ChartConfiguration } from 'chart.js/auto';
 
-	let { data, name, yAxisLabel, autoScale, cores, show_avg, show_cores } = $props();
+	let { timestamps, data, yAxisLabel, autoScale, cores, show_avg, show_cores } = $props();
 
 	let chartCanvas: HTMLCanvasElement;
 	var chart: chartjs;
 	const maxDataPoints = 60;
+
+	let timestamps_padded = $derived(Array(maxDataPoints - timestamps.length).fill(0).concat(timestamps));
+	let tcores = $derived(transpose(cores));
 
 	let initialized = false;
 	const getDataset = (label: string, color: string, bg_color: string, fill: boolean) => ({
@@ -23,7 +26,6 @@
 		datasets: [getDataset('System Average', '#4ade80', '#4ade8033', true)]
 	};
 
-	const timestamps = Array(maxDataPoints).fill(new Date());
 	const chartConfig = {
 		type: 'line',
 		data: chartData,
@@ -55,9 +57,9 @@
 					},
 					ticks: {
 						color: '#e1e1e3',
-						// format: 'HH:mm:ss',
 						callback: function (_: any, index: number) {
-							return index - maxDataPoints <= 0 ? 2 * (index - maxDataPoints) + 's' : '';
+							if (timestamps_padded[index] === 0) return '';
+							return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
 						}
 					}
 				}
@@ -75,7 +77,7 @@
 
 		return a[0].map((_, colIndex) => a.map((row) => row[colIndex]));
 	}
-	let tcores = $derived(transpose(cores));
+	
 	$effect(() => {
 		if (data.length > 0) {
 			// pre pad all arays to maxDataPoints

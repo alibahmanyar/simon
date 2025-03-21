@@ -7,6 +7,7 @@ export enum wsStatus{
 }
 
 export interface SystemData {
+  t: number;
   sys: SystemInfo;
   mem: MemoryInfo;
   cpu: CPUInfo;
@@ -85,6 +86,7 @@ export interface DockerContainer {
 }
 
 export interface DockerInfo {
+  t: number;
   containers: DockerContainer[];
 }
 
