@@ -277,7 +277,7 @@ async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Res
     // Send request
     let response = request_builder.send()
         .await
-        .map_err(|e| format!("Failed to send webhook request: {}", e))?;
+        .map_err(|e| format!("Failed to send webhook request: {:?}", e))?;
     
     if response.status().is_success() {
         info!("Webhook notification sent successfully");

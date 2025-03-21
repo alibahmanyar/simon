@@ -1,3 +1,5 @@
+import { page } from '$app/state';
+
 export const types2names: { [key: string]: string } = {
     cpu_usage: 'CPU Usage',
     mem_usage: 'Memory Usage',
@@ -41,13 +43,13 @@ export const var2unit: { [key: string]: string } = {
 };
 
 export function ws_url(s: string) {
-    var l = window.location;
-    return ((l.protocol === "https:") ? "wss://" : "ws://") + l.host + "/" + s;
+    console.log("page_origin", page.url.origin);
+    return ((page.url.protocol === "https:") ? "wss://" : "ws://") + page.url.origin + "/" + s;
 }
 
 export function url(s: string) {
-    var l = window.location;
-    return l.origin + "/" + s;
+    console.log("page_origin", page.url.origin);
+    return page.url.origin + "/" + s;
 }
 
 // Format bytes to human readable format

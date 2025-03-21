@@ -14,15 +14,24 @@
     box-sizing: border-box;
     font-family: 'Inter';
 }
-:root{
+
+:root {
     background: #171721;
 }
+
 body {
     background: #0f0f13;
     color: #e1e1e3;
     padding: 2rem;
     min-height: 100vh;
     background: linear-gradient(135deg, #0f0f13 0%, #171721 100%);
+}
+
+.scroll-locked {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
 }
 
 h1 {
@@ -49,10 +58,13 @@ h1 {
     overflow-x: auto;
 }
 
-a, a:visited, a:hover, a:active {
+a,
+a:visited,
+a:hover,
+a:active {
     color: inherit;
-  }
-  
+}
+
 .tab {
     text-decoration: none;
     padding: 0.8rem 1.5rem;
@@ -69,9 +81,15 @@ a, a:visited, a:hover, a:active {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
+
 .two-columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -149,11 +167,19 @@ a, a:visited, a:hover, a:active {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
 }
+
 .info-grid-1 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     gap: 1rem;
 }
+
+@media (max-width: 768px) {
+    .info-grid-1 {
+        display: block;
+    }
+}
+
 .info-item {
     display: flex;
     justify-content: space-between;
@@ -203,6 +229,17 @@ a, a:visited, a:hover, a:active {
     text-align: center;
     flex: 1;
     transition: all 0.2s ease;
+}
+
+@media (max-width: 768px) {
+    .load-average {
+        gap: 0.3rem;
+    }
+
+    .load-item {
+        padding-left: 0.2rem;
+        padding-right: 0.2rem;
+    }
 }
 
 .load-item:hover {
@@ -332,11 +369,11 @@ a, a:visited, a:hover, a:active {
     border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
     background-color: #4ade80;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
     transform: translateX(22px);
 }
 
@@ -376,7 +413,8 @@ input:checked + .slider:before {
     background-color: rgba(255, 255, 255, 0.08);
 }
 
-.network-interface, .disk-item {
+.network-interface,
+.disk-item {
     background: rgba(255, 255, 255, 0.02);
     border-radius: 10px;
     padding: 1rem;
@@ -385,7 +423,8 @@ input:checked + .slider:before {
     transition: all 0.2s ease;
 }
 
-.network-interface:hover, .disk-item:hover {
+.network-interface:hover,
+.disk-item:hover {
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(255, 255, 255, 0.08);
 }
@@ -421,8 +460,13 @@ input:checked + .slider:before {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .error-container {

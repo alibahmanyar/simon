@@ -5,6 +5,8 @@
 	import { fade } from 'svelte/transition';
 	import { wsStatus } from '$lib/types';
 
+	// $inspect(ddata).with(console.trace);
+
 	// Create state for container filtering and search
 	let searchTerm = $state('');
 	let activeFilter = $state('all');
@@ -17,7 +19,8 @@
 
 	// Reference to logs container element
 	let logsContainer = $state<HTMLDivElement | null>(null);
-
+	let dashboard = $state<HTMLDivElement | null>(null);
+	
 	// Function to scroll logs to bottom
 	function scrollLogsToBottom() {
 		if (logsContainer) {
@@ -29,6 +32,12 @@
 	$effect(() => {
 		if (showLogsModal && !isLoadingLogs && containerLogs.length > 0 && logsContainer) {
 			scrollLogsToBottom();
+		}
+
+		if (showLogsModal) {
+			dashboard?.classList.add('scroll-locked');
+		} else {
+			dashboard?.classList.remove('scroll-locked');
 		}
 	});
 
@@ -135,12 +144,9 @@
 				return a.name.localeCompare(b.name);
 			}) || []
 	);
-
-	// // Get running containers for selection dropdown
-	// let runningContainers = $derived(ddata.data?.containers?.filter(c => c.state === 'running') || []);
 </script>
 
-<div class="dashboard">
+<div class="dashboard" bind:this={dashboard}>
 	{#if ddata.status === wsStatus.CONNECTED && ddata.data?.containers?.length > 0}
 		<div class="card">
 			<p class="card-title">Docker Containers</p>
