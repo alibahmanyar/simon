@@ -12,7 +12,7 @@
 	import { fly, fade } from 'svelte/transition';
 	import type { Alert, AlertVar, NotificationMethod } from '$lib/types';
 
-	let is_loading: boolean = $state(false);
+	let is_loading: boolean = $state(true);
 
 	let showDialog = $state(false);
 	let is_new = $state(true);

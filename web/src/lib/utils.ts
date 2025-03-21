@@ -43,12 +43,12 @@ export const var2unit: { [key: string]: string } = {
 };
 
 export function ws_url(s: string) {
-    console.log("page_origin", page.url.origin);
-    return ((page.url.protocol === "https:") ? "wss://" : "ws://") + page.url.origin + "/" + s;
+    console.log("page_origin1", page.url.origin, page.url.host, page.url.pathname);
+    return ((page.url.protocol === "https:") ? "wss://" : "ws://") + page.url.host + "/" + s;
 }
 
 export function url(s: string) {
-    console.log("page_origin", page.url.origin);
+    console.log("page_origin2", page.url.origin, page.url.host, page.url.pathname);
     return page.url.origin + "/" + s;
 }
 

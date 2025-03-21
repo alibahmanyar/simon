@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 
-	let is_loading: boolean = $state(false);
+	let is_loading: boolean = $state(true);
 	let notificationMethods: any[] = $state([]);
 	let showDialog = $state(false);
 
