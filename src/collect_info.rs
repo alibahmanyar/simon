@@ -72,6 +72,7 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
                     || mount_point.starts_with("/sys")
                     || mount_point.starts_with("/proc")
                     || mount_point.starts_with("/etc")
+                    || mount_point.starts_with("/app")
                 {
                     return false;
                 }

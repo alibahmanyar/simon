@@ -84,6 +84,7 @@ docker:
 	docker build -t $(PROJECT_NAME) .
 
 .PHONY: docker-all
+docker-all:
 	docker buildx build -t $(PROJECT_NAME) --platform linux/amd64,linux/arm64,linux/386,linux/arm/v7 .
 
 # Help

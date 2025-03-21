@@ -20,7 +20,7 @@
 			{#if disks.length > 0}
 				{#each disks as disk, index}
 					{@const usedPercentage =
-						disk.total_space > 0 ? ((disk.free_space / disk.total_space) * 100).toFixed(1) : 0}
+						disk.total_space > 0 ? ((1 - (disk.free_space / disk.total_space)) * 100).toFixed(1) : 0}
 
 					<div class="disk-item">
 						<!-- <p class="card-title">{disk.fs || `Disk ${index + 1}`}</p> -->
