@@ -60,7 +60,7 @@
 						color: '#e1e1e3',
 						// format: 'HH:mm:ss',
 						callback: function (_: any, index: number) {
-							return index - maxDataPoints <= 0 ? index - maxDataPoints + 's' : '';
+							return index - maxDataPoints <= 0 ? 2 * (index - maxDataPoints) + 's' : '';
 						}
 					}
 				}

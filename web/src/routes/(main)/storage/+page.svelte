@@ -8,10 +8,7 @@
 	$effect(() => {
 		disks = gdata.data?.disk.disks.filter(
 			(disk) => (
-				!disk.mount_point.includes('/boot') &&
-				!['securityfs', 'efivarfs', 'bpf', 'configfs', 'selinuxfs', 
-					'tracefs', 'debugfs', 'fusectl', 'autofs', 'nsfs', 
-					'fuse', 'overlay'].some(term => disk.fs.includes(term))
+				!disk.mount_point.includes('/boot')
 			)
 		);
 	});

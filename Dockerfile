@@ -2,7 +2,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 # Final stage
-FROM busybox:latest AS base
+FROM scratch AS base
 
 WORKDIR /app
 

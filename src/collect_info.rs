@@ -17,7 +17,10 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
         avg_usage: average_usage,
         usage: cores_usage,
     };
-    trace!("CPU info collected: {} cores, {:.2}% avg usage", cpu_info.count, cpu_info.avg_usage);
+    trace!(
+        "CPU info collected: {} cores, {:.2}% avg usage",
+        cpu_info.count, cpu_info.avg_usage
+    );
 
     // Memory info
     let memory_info = MemoryInfo {
@@ -56,10 +59,52 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
 
     // Disk info
     let disks = Disks::new_with_refreshed_list();
+    trace!("Disks: {:?}", disks);
 
     let disk_info = DisksInfo {
         disks: disks
             .iter()
+            .filter(|disk| {
+                let fs = disk.file_system().to_str().unwrap_or_default();
+                let mount_point = disk.mount_point().to_str().unwrap_or_default();
+                // Skip non-filesystems and system partitions
+                if fs.is_empty()
+                    || mount_point.starts_with("/sys")
+                    || mount_point.starts_with("/proc")
+                    || mount_point.starts_with("/etc")
+                {
+                    return false;
+                }
+                // Common filesystem types
+                matches!(
+                    fs.to_lowercase().as_str(),
+                    "ext2"
+                        | "ext3"
+                        | "ext4"
+                        | "btrfs"
+                        | "xfs"
+                        | "zfs"
+                        | "ntfs"
+                        | "fat"
+                        | "fat32"
+                        | "exfat"
+                        | "hfs"
+                        | "hfs+"
+                        | "apfs"
+                        | "jfs"
+                        | "reiserfs"
+                        | "ufs"
+                        | "f2fs"
+                        | "nilfs2"
+                        | "hpfs"
+                        | "minix"
+                        | "qnx4"
+                        | "ocfs2"
+                        | "udf"
+                        | "vfat"
+                        | "msdos"
+                )
+            })
             .map(|disk| DiskInfo {
                 fs: disk.file_system().to_str().unwrap_or_default().to_string(),
                 kind: disk.kind().to_string(),
@@ -113,8 +158,11 @@ pub fn collect_processes_info(sys: &System) -> ProcessesInfo {
                 .join("; "),
         })
         .collect();
-    
-    debug!("Collected information for {} processes", sys.processes().len());
+
+    debug!(
+        "Collected information for {} processes",
+        sys.processes().len()
+    );
     ProcessesInfo { processes }
 }
 
@@ -124,7 +172,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         Ok(docker) => {
             debug!("Successfully connected to Docker daemon");
             docker
-        },
+        }
         Err(e) => {
             warn!("Failed to connect to Docker daemon: {}", e);
             return None;
@@ -143,7 +191,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         Ok(containers) => {
             debug!("Found {} Docker containers", containers.len());
             containers
-        },
+        }
         Err(e) => {
             warn!("Failed to list Docker containers: {}", e);
             return None;
@@ -248,7 +296,10 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         });
     }
 
-    debug!("Successfully collected data for {} Docker containers", result.len());
+    debug!(
+        "Successfully collected data for {} Docker containers",
+        result.len()
+    );
     Some(DockerInfo { containers: result })
 }
 

@@ -1,4 +1,5 @@
 use clap::Parser;
+use log::{info, error};
 use rand::{self, Rng, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -26,7 +27,7 @@ pub struct Config {
     pub password_hash: Option<String>,
 
     /// Database path
-    #[arg(long, default_value = "./simon.db", env = "SIMON_DB_PATH")]
+    #[arg(long, default_value = "./simon-data/simon.db", env = "SIMON_DB_PATH")]
     pub db_path: String,
 
     /// JWT secret key for authentication tokens
@@ -43,10 +44,21 @@ impl Config {
 pub fn parse_config() -> Config {
     let mut config = Config::parse();
 
+    // Ensure database directory exists
+    if let Some(parent) = std::path::Path::new(&config.db_path).parent() {
+        if !parent.exists() {
+            info!("Creating directory for database at: {}", parent.display());
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                error!("Failed to create database directory: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+
     if config.password_hash.is_some() {
         // check if valid bcrypt
         if !config.password_hash.as_ref().unwrap().starts_with("$2") {
-            eprintln!("Invalid password: Password must be a valid bcrypt hash starting with '$2'");
+            error!("Invalid password: Password must be a valid bcrypt hash starting with '$2'");
             std::process::exit(1);
         }
     }
@@ -54,7 +66,7 @@ pub fn parse_config() -> Config {
     let db = match db::Database::new(&config.db_path.clone()) {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to open database: {}", e);
+            error!("Failed to open database: {}", e);
             std::process::exit(1);
         }
     };
@@ -81,7 +93,7 @@ pub fn parse_config() -> Config {
             }
         }
         Err(e) => {
-            eprintln!("Failed to read from database: {}", e);
+            error!("Failed to read from database: {}", e);
             std::process::exit(1);
         }
     }

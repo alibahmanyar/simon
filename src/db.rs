@@ -1,4 +1,5 @@
 use crate::models::{AlertVar, GeneralInfo, HistoricalQueryOptions, HistoricalSeries, ALERT_VARIABLES};
+use log::error;
 use rusqlite::{Connection, Result, params};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -207,7 +208,7 @@ impl Database {
             let mut stmt = match conn.prepare(&query) {
                 Ok(stmt) => stmt,
                 Err(e) => {
-                    eprintln!("Failed to prepare query for {}: {}", table_name, e);
+                    error!("Failed to prepare query for {}: {}", table_name, e);
                     continue;
                 }
             };
@@ -224,7 +225,7 @@ impl Database {
             let mut rows = match stmt.query(rusqlite::params_from_iter(param_refs.iter())) {
                 Ok(rows) => rows,
                 Err(e) => {
-                    eprintln!("Failed to execute query for {}: {}", table_name, e);
+                    error!("Failed to execute query for {}: {}", table_name, e);
                     continue;
                 }
             };
@@ -330,7 +331,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
     let db = match Database::new(db_path) {
         Ok(db) => Arc::new(db),
         Err(e) => {
-            eprintln!("Failed to initialize database: {}", e);
+            error!("Failed to initialize database: {}", e);
             return;
         }
     };
