@@ -11,6 +11,7 @@ use alerts::check_alerts;
 use axum::{
     routing::{delete, get, post}, Router
 };
+use std::net::SocketAddr;
 use db::db_update;
 use endpoints::{
     add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_auth, serve_favicon, serve_font_1, serve_font_2, serve_font_3, serve_font_4, serve_index, ws_handler_d, ws_handler_g, ws_handler_p
@@ -158,5 +159,5 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(config.socket_address())
         .await
         .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
