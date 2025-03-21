@@ -263,6 +263,14 @@
 				</div>
 			{/if}
 		</div>
+	{:else if ddata.data === null}
+		<div class="error-container">
+			<p>Docker Not Available</p>
+			<p>
+				Make sure docker is installed and accessible (user must be in docker group and should have
+				access to /var/run/docker.sock)
+			</p>
+		</div>
 	{:else if ddata.status === wsStatus.CONNECTED && ddata.data?.containers?.length === 0}
 		<div class="info-item">
 			<p>No Docker containers found on system</p>
@@ -285,7 +293,10 @@
 	{:else}
 		<div class="error-container">
 			<p>Docker Not Available</p>
-			<p>Make sure docker is installed and accessible (user must be in docker group and should have access to /var/run/docker.sock)</p>
+			<p>
+				Make sure docker is installed and accessible (user must be in docker group and should have
+				access to /var/run/docker.sock)
+			</p>
 		</div>
 	{/if}
 </div>

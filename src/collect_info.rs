@@ -124,6 +124,7 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
 
     debug!("General system information collection completed");
     GeneralInfo {
+        t: chrono::Utc::now().timestamp(),
         sys: system_info,
         mem: memory_info,
         cpu: cpu_info,
@@ -163,7 +164,10 @@ pub fn collect_processes_info(sys: &System) -> ProcessesInfo {
         "Collected information for {} processes",
         sys.processes().len()
     );
-    ProcessesInfo { processes }
+    ProcessesInfo {
+        t: chrono::Utc::now().timestamp(),
+        processes,
+    }
 }
 
 pub async fn get_docker_containers() -> Option<DockerInfo> {
@@ -300,7 +304,10 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         "Successfully collected data for {} Docker containers",
         result.len()
     );
-    Some(DockerInfo { containers: result })
+    Some(DockerInfo {
+        t: chrono::Utc::now().timestamp(),
+        containers: result,
+    })
 }
 
 #[cfg(test)]

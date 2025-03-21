@@ -376,7 +376,8 @@ pub async fn add_alert(
                 .into_response();
         }
     };
-
+    alert.firing = false;
+    
     info!("Adding alert for {}", alert.var.var);
     debug!("Alert details: {:?}", alert);
 

@@ -1,6 +1,6 @@
 use crate::db::Database;
 use crate::models::{Alert, AlertVar, NotificationConfig, NotificationMethod, WebHookNotif, EmailNotif, TelegramNotif};
-use log::{info, error};
+use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use rusqlite::params;
 use tokio::time::{interval, Duration};
@@ -23,7 +23,9 @@ pub async fn check_alerts(db_path: &str) {
 
     // Run alert checking loop
     let mut interval_timer = interval(Duration::from_secs(60)); // Check every minute
+    tokio::time::sleep(Duration::from_secs(70)).await;
     loop {
+        debug!("Checking alerts");
         interval_timer.tick().await;
         
         let alerts = match get_alerts(&db) {
@@ -53,6 +55,7 @@ pub async fn check_alerts(db_path: &str) {
 
         // Process each alert
         for mut alert in alerts {
+            trace!("Checking alert: {:?}", alert);
             if !alert.enabled {
                 continue;
             }
@@ -65,6 +68,7 @@ pub async fn check_alerts(db_path: &str) {
                     continue;
                 }
             };
+            trace!("Alert firing: {}", is_firing);
             
             // If alert state has changed, update it in the database
             if is_firing != alert.firing {
@@ -75,14 +79,7 @@ pub async fn check_alerts(db_path: &str) {
 
                 if is_firing {
                     info!("Alert fired: {:?}", alert);
-                    let notification_message = format!(
-                        "{} {} {} {} for the last {} minutes",
-                        get_var_friendly_name(&alert.var),
-                        if alert.var.cat != "sys" { format!("({})", alert.var.resrc).to_string().clone() } else { "".to_string() },
-                        alert.operator,
-                        alert.threshold,
-                        alert.time_window
-                    );
+                    let notification_message = format_alert_message(&alert, true);
                     
                     // Send notifications to all configured methods for this alert
                     for method_id in &alert.notif_methods {
@@ -95,17 +92,10 @@ pub async fn check_alerts(db_path: &str) {
                         }
                     }
                 }
-                else{
+                else {
                     // send the relief
                     info!("Alert relief: {:?}", alert);
-                    let notification_message = format!(
-                        "Alert relief: {} {} {} {} for the last {} minutes",
-                        get_var_friendly_name(&alert.var),
-                        if alert.var.cat != "sys" { format!("({})", alert.var.resrc).to_string().clone() } else { "".to_string() },
-                        alert.operator,
-                        alert.threshold,
-                        alert.time_window
-                    );
+                    let notification_message = format_alert_message(&alert, false);
 
                     // Send notifications to all configured methods for this alert
                     for method_id in &alert.notif_methods {
@@ -362,4 +352,85 @@ fn get_var_friendly_name(var: &AlertVar) -> String {
         ("disk", "disk_usage") => "Disk Usage".to_string(),
         _ => format!("{} {}", var.cat, var.var),
     }
+}
+
+/// Format an alert message with appropriate units and verbs
+fn format_alert_message(alert: &Alert, is_firing: bool) -> String {
+    // Get the resource identifier if applicable
+    let resource = if alert.var.cat != "sys" {
+        format!(" ({})", alert.var.resrc)
+    } else {
+        "".to_string()
+    };
+
+    // Get unit for the metric
+    let (value_with_unit, verb) = match (alert.var.cat.as_str(), alert.var.var.as_str(), alert.operator.as_str()) {
+        // System metrics
+        (_, "cpu_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "cpu_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
+        (_, "mem_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "mem_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
+        (_, "swap_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "swap_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
+        (_, "disk_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "disk_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
+        (_, "load_avg_1", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_1", "<") => (format!("{}", alert.threshold), "dropped below"),
+        (_, "load_avg_5", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_5", "<") => (format!("{}", alert.threshold), "dropped below"),
+        (_, "load_avg_15", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_15", "<") => (format!("{}", alert.threshold), "dropped below"),
+        
+        // Network metrics
+        ("net", "rx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("net", "rx_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
+        ("net", "tx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("net", "tx_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
+        
+        // Disk metrics
+        ("disk", "read_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("disk", "read_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
+        ("disk", "write_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("disk", "write_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
+        
+        // Default case
+        (_, _, ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, _, "<") => (format!("{}", alert.threshold), "is below"),
+        _ => (format!("{}", alert.threshold), "equals"),
+    };
+
+    if is_firing {
+        format!(
+            "ALERT: {}{} {} {} (sustained for {} min)",
+            get_var_friendly_name(&alert.var),
+            resource,
+            verb,
+            value_with_unit,
+            alert.time_window
+        )
+    } else {
+        format!(
+            "RESOLVED: {}{} no longer {} {} (back to normal)",
+            get_var_friendly_name(&alert.var),
+            resource,
+            verb,
+            value_with_unit
+        )
+    }
+}
+
+/// Format bytes per second with appropriate units
+fn format_bytes_per_sec(bytes_per_sec: f64) -> String {
+    const KIB: f64 = 1024.0;
+    
+    if bytes_per_sec <= 0.0 {
+        return "0.00 B/s".to_string();
+    }
+    
+    let units = ["B/s", "KiB/s", "MiB/s", "GiB/s"];
+    let exp = (bytes_per_sec.ln() / KIB.ln()).floor() as i32;
+    let exp = exp.clamp(0, (units.len() - 1) as i32);
+    
+    let value = bytes_per_sec / KIB.powi(exp);
+    format!("{:.2} {}", value, units[exp as usize])
 }

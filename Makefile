@@ -79,6 +79,13 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 install-cross:
 	cargo install cross --git https://github.com/cross-rs/cross
 
+.PHONY: docker
+docker:
+	docker build -t $(PROJECT_NAME) .
+
+.PHONY: docker-all
+	docker buildx build -t $(PROJECT_NAME) --platform linux/amd64,linux/arm64,linux/386,linux/arm/v7 .
+
 # Help
 .PHONY: help
 help:
@@ -98,6 +105,10 @@ help:
 	@echo "  linux-aarch64      64-bit ARM Linux"
 	@echo "  linux-armv7        32-bit ARM Linux"
 	@echo "  linux-i686         32-bit Linux (x86)"
+	@echo "  linux-aarch64-musl 64-bit ARM Linux (musl)"
+	@echo "  linux-armv7-musl   32-bit ARM Linux (musl)"
+	@echo "  linux-x86_64-musl  64-bit Linux (x86_64, musl)"
+	@echo "  linux-i686-musl    32-bit Linux (x86, musl)"
 	@echo ""
 	@echo "Special targets:"
 	@echo "  all-targets        Build all supported targets"

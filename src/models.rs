@@ -24,6 +24,7 @@ pub struct ApiResponse<T> {
 
 #[derive(Clone, Serialize)]
 pub struct GeneralInfo {
+    pub t: i64,
     pub sys: SystemInfo,
     pub mem: MemoryInfo,
     pub cpu: CpuInfo,
@@ -87,6 +88,7 @@ pub struct DiskInfo {
 
 #[derive(Clone, Serialize)]
 pub struct ProcessesInfo {
+    pub t: i64,
     pub processes: Vec<ProcessInfo>,
 }
 
@@ -128,6 +130,7 @@ pub struct DockerPort {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DockerInfo {
+    pub t: i64,
     pub containers: Vec<DockerContainer>,
 }
 

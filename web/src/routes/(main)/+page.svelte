@@ -5,7 +5,7 @@
 	import Chart from '$lib/Chart.svelte';
 	import CpuChart from '$lib/CpuChart.svelte';
 
-	// $inspect(gdata).with(console.trace);
+	$inspect(gdata).with(console.trace);
 
 	let memoryPercentage = $derived(
 		gdata.data

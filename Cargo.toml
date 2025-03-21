@@ -28,3 +28,4 @@ reqwest = "0.12.14"
 teloxide = "0.13.0"
 lettre = "0.11.15"
 openssl = { version = "0.10", features = ["vendored"] }
+axum-response-cache = "0.2.0"
