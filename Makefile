@@ -27,7 +27,7 @@ test:
 # Clean build artifacts
 .PHONY: clean
 clean:
-	$(CARGO) clean
+	$(CARGO) clean && rm -rf web/build
 
 # Install the application
 .PHONY: install
@@ -86,6 +86,10 @@ docker:
 .PHONY: docker-all
 docker-all:
 	docker buildx build -t $(PROJECT_NAME) --platform linux/amd64,linux/arm64,linux/386,linux/arm/v7 .
+
+.PHONY: web
+web:
+	cd web && bun run build && mkdir -p build/static && cp build/index.html build/auth.html build/favicon.png build/Inter-Regular.woff build/Inter-Regular.woff2 build/RobotoMono-Regular.woff build/RobotoMono-Regular.woff2 build/static
 
 # Help
 .PHONY: help

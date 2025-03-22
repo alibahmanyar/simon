@@ -14,7 +14,7 @@
 	});
 </script>
 
-{#if disks}
+{#if disks && disks.length > 0}
 	<div class="card">
 		<div id="disk-info" class="info-grid-1">
 			{#if disks.length > 0}

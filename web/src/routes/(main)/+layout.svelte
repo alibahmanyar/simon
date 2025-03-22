@@ -2,19 +2,36 @@
 	import '$lib/style.css';
 	let { children } = $props();
     import { page } from '$app/state';
-    import { gdata } from '$lib/general_socket.svelte';
+	import { gdata, open_ws as general_ws_open, close_ws as general_ws_close} from '$lib/general_socket.svelte';
+	import { open_ws as docker_ws_open, close_ws as docker_ws_close } from '$lib/docker_socket.svelte';
 	import { wsStatus } from '$lib/types';
+	import { onMount, onDestroy } from 'svelte';
+	
+	onMount(() => {
+		setTimeout(general_ws_open, 2);
+		setTimeout(docker_ws_open, 2);
+
+		return () => {
+			general_ws_close();
+			docker_ws_close();
+		};
+	});
+
+	onDestroy(() => {
+		general_ws_close();
+		docker_ws_close();
+	});
 </script>
 <h1>Simon</h1>
 <div class="dashboard">
 	{#if gdata.status === wsStatus.CONNECTED}
 	<nav class="tabs">
 		<a class="tab" class:active={page.url.pathname==='/'} href="/">Overview</a>
-		<a class="tab" class:active={page.url.pathname==='/storage'} href="/storage">Storage</a>
-		<a class="tab" class:active={page.url.pathname==='/network'} href="/network">Network</a>
+		<a class="tab" class:active={page.url.pathname==='/storage'} href="storage">Storage</a>
+		<a class="tab" class:active={page.url.pathname==='/network'} href="network">Network</a>
         <!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
-		<a class="tab" class:active={page.url.pathname==='/docker'} href="/docker">Docker</a>
-		<a class="tab" class:active={page.url.pathname==='/graphs'} href="/graphs">Historical Charts</a>
+		<a class="tab" class:active={page.url.pathname==='/docker'} href="docker">Docker</a>
+		<a class="tab" class:active={page.url.pathname==='/graphs'} href="graphs">Historical Charts</a>
 		<a class="tab home-button" href="/notif_methods" style="margin-left: auto;" aria-label="Settings">
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<circle cx="12" cy="12" r="3"></circle>

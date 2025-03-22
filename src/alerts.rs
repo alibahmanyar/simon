@@ -367,35 +367,35 @@ fn format_alert_message(alert: &Alert, is_firing: bool) -> String {
     // Get unit for the metric
     let (value_with_unit, verb) = match (alert.var.cat.as_str(), alert.var.var.as_str(), alert.operator.as_str()) {
         // System metrics
-        (_, "cpu_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "cpu_usage", ">") => (format!("{}%", alert.threshold), "exceeded"),
         (_, "cpu_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
-        (_, "mem_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "mem_usage", ">") => (format!("{}%", alert.threshold), "exceeded"),
         (_, "mem_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
-        (_, "swap_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "swap_usage", ">") => (format!("{}%", alert.threshold), "exceeded"),
         (_, "swap_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
-        (_, "disk_usage", ">") => (format!("{}%", alert.threshold), "exceeds"),
+        (_, "disk_usage", ">") => (format!("{}%", alert.threshold), "exceeded"),
         (_, "disk_usage", "<") => (format!("{}%", alert.threshold), "dropped below"),
-        (_, "load_avg_1", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_1", ">") => (format!("{}", alert.threshold), "exceeded"),
         (_, "load_avg_1", "<") => (format!("{}", alert.threshold), "dropped below"),
-        (_, "load_avg_5", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_5", ">") => (format!("{}", alert.threshold), "exceeded"),
         (_, "load_avg_5", "<") => (format!("{}", alert.threshold), "dropped below"),
-        (_, "load_avg_15", ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, "load_avg_15", ">") => (format!("{}", alert.threshold), "exceeded"),
         (_, "load_avg_15", "<") => (format!("{}", alert.threshold), "dropped below"),
         
         // Network metrics
-        ("net", "rx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("net", "rx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeded"),
         ("net", "rx_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
-        ("net", "tx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("net", "tx_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeded"),
         ("net", "tx_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
         
         // Disk metrics
-        ("disk", "read_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("disk", "read_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeded"),
         ("disk", "read_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
-        ("disk", "write_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeds"),
+        ("disk", "write_rate", ">") => (format_bytes_per_sec(alert.threshold), "exceeded"),
         ("disk", "write_rate", "<") => (format_bytes_per_sec(alert.threshold), "dropped below"),
         
         // Default case
-        (_, _, ">") => (format!("{}", alert.threshold), "exceeds"),
+        (_, _, ">") => (format!("{}", alert.threshold), "exceeded"),
         (_, _, "<") => (format!("{}", alert.threshold), "is below"),
         _ => (format!("{}", alert.threshold), "equals"),
     };

@@ -14,7 +14,7 @@ use axum::{
 use std::net::SocketAddr;
 use db::db_update;
 use endpoints::{
-    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_auth, serve_favicon, serve_font_1, serve_font_2, serve_font_3, serve_font_4, serve_index, ws_handler_d, ws_handler_g, ws_handler_p
+    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d, ws_handler_g, ws_handler_p
 };
 use log::{error, info, debug};
 use std::sync::{Arc, Mutex};
@@ -119,13 +119,13 @@ async fn main() {
     debug!("Alerts checking background task started");
 
     let mut app = Router::new()
-        .route("/", get(serve_index))
-        .route("/favicon.png", get(serve_favicon))
-        .route("/Inter-Regular.woff", get(serve_font_1))
-        .route("/Inter-Regular.woff2", get(serve_font_2))
-        .route("/RobotoMono-Regular.woff", get(serve_font_3))
-        .route("/RobotoMono-Regular.woff2", get(serve_font_4))
-        .route("/auth", get(serve_auth))
+        .route("/", get(serve_static))
+        .route("/favicon.png", get(serve_static))
+        .route("/Inter-Regular.woff", get(serve_static))
+        .route("/Inter-Regular.woff2", get(serve_static))
+        .route("/RobotoMono-Regular.woff", get(serve_static))
+        .route("/RobotoMono-Regular.woff2", get(serve_static))
+        .route("/auth", get(serve_static))
         .route("/auth", post(auth::auth_handler))
         .route("/ws/g", get(ws_handler_g))
         .route("/ws/p", get(ws_handler_p))
@@ -140,7 +140,7 @@ async fn main() {
         .route("/api/alerts", get(get_alerts))
         .route("/api/alerts/{id}", delete(delete_alert))
         .route("/api/alert_vars", get(get_alert_vars))
-        .fallback(get(serve_index))
+        .fallback(get(serve_static))
         .with_state((shared_sys, config.clone()));
 
     if let Some(_) = &config.password_hash {

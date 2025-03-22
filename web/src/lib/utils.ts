@@ -44,12 +44,14 @@ export const var2unit: { [key: string]: string } = {
 
 export function ws_url(s: string) {
     console.log("page_origin1", page.url.origin, page.url.host, page.url.pathname);
-    return ((page.url.protocol === "https:") ? "wss://" : "ws://") + page.url.host + "/" + s;
+    let base = page.url.href.replaceAll("http", "ws").slice(0 , -page.url.pathname.length);
+    return base + "/" + s;
 }
 
 export function url(s: string) {
     console.log("page_origin2", page.url.origin, page.url.host, page.url.pathname);
-    return page.url.origin + "/" + s;
+    let base = page.url.href.slice(0 , -page.url.pathname.length);
+    return base + "/" + s;
 }
 
 // Format bytes to human readable format

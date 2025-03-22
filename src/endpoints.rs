@@ -3,8 +3,10 @@ use crate::config::Config;
 use crate::db::Database;
 use crate::models::{self, NotificationMethod};
 use axum::Json;
+use axum::body::Body;
+use axum::extract::rejection::JsonRejection;
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Path, Query};
+use axum::extract::{Path, Query, Request};
 use axum::http::StatusCode;
 use axum::{
     extract::{ConnectInfo, State, WebSocketUpgrade},
@@ -15,47 +17,76 @@ use bollard::container::LogsOptions;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
 use models::HistoricalQueryOptions;
+use rust_embed::Embed;
 use serde_json;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
-
-use axum::extract::rejection::JsonRejection;
 use tokio::{
     self,
     time::{Duration, interval},
 };
 
-// Embed the index.html file directly into the binary at compile time
-const INDEX_HTML: &str = include_str!("../web/build/index.html");
-const AUTH_HTML: &str = include_str!("../web/build/auth.html");
-const FAVICON: &[u8] = include_bytes!("../web/build/favicon.png");
-const FONT_1: &[u8] = include_bytes!("../web/build/Inter-Regular.woff");
-const FONT_2: &[u8] = include_bytes!("../web/build/Inter-Regular.woff2");
-const FONT_3: &[u8] = include_bytes!("../web/build/RobotoMono-Regular.woff");
-const FONT_4: &[u8] = include_bytes!("../web/build/RobotoMono-Regular.woff2");
+#[derive(Embed)]
+#[folder = "web/build/static"]
+struct Asset;
 
-// Handlers to serve the embedded static stuff
-pub async fn serve_index() -> impl IntoResponse {
-    Html(INDEX_HTML)
-}
-pub async fn serve_auth() -> impl IntoResponse {
-    Html(AUTH_HTML)
-}
-pub async fn serve_favicon() -> impl IntoResponse {
-    (StatusCode::OK, FAVICON)
-}
-pub async fn serve_font_1() -> impl IntoResponse {
-    (StatusCode::OK, FONT_1)
-}
-pub async fn serve_font_2() -> impl IntoResponse {
-    (StatusCode::OK, FONT_2)
-}
-pub async fn serve_font_3() -> impl IntoResponse {
-    (StatusCode::OK, FONT_3)
-}
-pub async fn serve_font_4() -> impl IntoResponse {
-    (StatusCode::OK, FONT_4)
+pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
+    let mut path = request.uri().path();
+    let cache_control: &str;
+    if path.ends_with("favico.png") {
+        path = "favicon.png";
+        cache_control = "private, max-age=7200";
+    } else if path.ends_with("Inter-Regular.woff") {
+        path= "Inter-Regular.woff"; 
+        cache_control = "public, max-age=15552000, immutable";
+    } else if path.ends_with("Inter-Regular.woff2") {
+        path = "Inter-Regular.woff2";
+        cache_control = "public, max-age=15552000, immutable";
+    } else if path.ends_with("RobotoMono-Regular.woff") {
+        path = "RobotoMono-Regular.woff";
+        cache_control = "public, max-age=15552000, immutable";
+    } else if path.ends_with("RobotoMono-Regular.woff2"){
+        path = "RobotoMono-Regular.woff2";
+        cache_control = "public, max-age=15552000, immutable";
+    } else if path.ends_with("auth") {
+        path = "auth.html";
+        cache_control = "private, max-age=3600";
+    } else {
+        path = "index.html";
+        cache_control = "private, max-age=3600";
+    }
+
+    match Asset::get(&path) {
+        Some(content) => {
+            let etag = hex::encode(content.metadata.sha256_hash());
+            
+            // Check If-None-Match header
+            if let Some(if_none_match) = request.headers().get("If-None-Match") {
+            if let Ok(if_none_match_str) = if_none_match.to_str() {
+                if if_none_match_str == etag {
+                return StatusCode::NOT_MODIFIED.into_response();
+                }
+            }
+            }
+            
+            (
+            [
+                (
+                "Content-Type",
+                mime_guess::from_path(path)
+                    .first_or_octet_stream()
+                    .essence_str(),
+                ),
+                ("ETag", etag.as_str()),
+                ("Cache-Control", cache_control),
+            ],
+            content.data.into_response(),
+            )
+            .into_response()
+        },
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 pub async fn req_info(ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> String {
@@ -377,7 +408,7 @@ pub async fn add_alert(
         }
     };
     alert.firing = false;
-    
+
     info!("Adding alert for {}", alert.var.var);
     debug!("Alert details: {:?}", alert);
 

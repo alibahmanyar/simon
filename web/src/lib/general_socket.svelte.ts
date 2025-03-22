@@ -36,7 +36,13 @@ function scheduleReconnect() {
     }, delay) as unknown as number;
 }
 
-function open_ws() {
+export function close_ws() {
+    if (g_ws !== null) {
+        g_ws.close();
+    }
+}
+
+export function open_ws() {
     // Clean up existing connection if any
     if (g_ws !== null) {
         try {
@@ -103,5 +109,3 @@ function open_ws() {
         gdata.data = JSON.parse(responseData) as SystemData;
     }
 }
-
-setTimeout(open_ws, 10);

@@ -39,7 +39,13 @@ function scheduleReconnect() {
     }, delay) as unknown as number;
 }
 
-function open_ws() {
+export function close_ws() {
+    if (d_ws !== null) {
+        d_ws.close();
+    }
+}
+
+export function open_ws() {
     // Clean up existing connection if any
     if (d_ws !== null) {
         try {
@@ -100,5 +106,3 @@ function open_ws() {
         ddata.data = JSON.parse(responseData) as DockerInfo;
     }
 }
-
-setTimeout(open_ws, 10);

@@ -4,7 +4,6 @@
 	import { ddata } from '$lib/docker_socket.svelte';
 	import { fade } from 'svelte/transition';
 	import { wsStatus } from '$lib/types';
-
 	// $inspect(ddata).with(console.trace);
 
 	// Create state for container filtering and search
@@ -20,7 +19,7 @@
 	// Reference to logs container element
 	let logsContainer = $state<HTMLDivElement | null>(null);
 	let dashboard = $state<HTMLDivElement | null>(null);
-	
+
 	// Function to scroll logs to bottom
 	function scrollLogsToBottom() {
 		if (logsContainer) {
