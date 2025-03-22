@@ -34,7 +34,7 @@ struct Asset;
 pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     let mut path = request.uri().path();
     let cache_control: &str;
-    if path.ends_with("favico.png") {
+    if path.ends_with("favicon.png") {
         path = "favicon.png";
         cache_control = "private, max-age=7200";
     } else if path.ends_with("Inter-Regular.woff") {
