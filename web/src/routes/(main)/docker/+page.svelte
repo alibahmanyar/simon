@@ -235,12 +235,7 @@
 								<div class="container-detail">
 									<div class="container-detail-label">Ports</div>
 									<div>
-										{#each container.ports.sort((a, b) => {
-											const pubPortA = a.pub_port || 0;
-											const pubPortB = b.pub_port || 0;
-											if (pubPortA !== pubPortB) return pubPortA - pubPortB;
-											return a.priv_port - b.priv_port;
-										}) as port}
+										{#each container.ports as port (port.ip, port.priv_port, port.pub_port)}
 											<span class="container-port">
 												{port.ip ? port.ip + ':' : ''}{port.pub_port ||
 													''}:{port.priv_port}/{port.protocol}
