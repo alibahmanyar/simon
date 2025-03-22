@@ -235,7 +235,9 @@
 								<div class="container-detail">
 									<div class="container-detail-label">Ports</div>
 									<div>
-										{#each container.ports as port (port.ip, port.priv_port, port.pub_port)}
+										{#each container.ports.toSorted(
+											(a, b) =>(a.pub_port || 0) - (b.pub_port || 0) || a.priv_port - b.priv_port
+										) as port (port.priv_port)}
 											<span class="container-port">
 												{port.ip ? port.ip + ':' : ''}{port.pub_port ||
 													''}:{port.priv_port}/{port.protocol}
