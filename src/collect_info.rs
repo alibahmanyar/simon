@@ -59,7 +59,6 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
 
     // Disk info
     let disks = Disks::new_with_refreshed_list();
-    trace!("Disks: {:?}", disks);
 
     let disk_info = DisksInfo {
         disks: disks

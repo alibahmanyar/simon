@@ -65,7 +65,7 @@ pub async fn auth_handler(
             .header(
                 header::SET_COOKIE,
                 format!(
-                    "simon_auth_token={}; Path=/; HttpOnly; SameSite=Strict",
+                    "simon_auth_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=5184000",
                     token
                 ),
             )

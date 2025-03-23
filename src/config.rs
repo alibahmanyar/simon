@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::{info, error};
+use log::{debug, error, info};
 use rand::{self, Rng, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -97,6 +97,8 @@ pub fn parse_config() -> Config {
             std::process::exit(1);
         }
     }
+
+    debug!("Config: {:?}", config);
     
     config
 }

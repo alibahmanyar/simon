@@ -23,7 +23,7 @@ function scheduleReconnect() {
     isReconnecting = true;
     const delay = getReconnectDelay();
     
-    console.log(`Scheduling reconnect attempt in ${delay}ms`);
+    //console.log(`Scheduling reconnect attempt in ${delay}ms`);
     
     if (reconnectTimeout !== null) {
         clearTimeout(reconnectTimeout);
@@ -71,7 +71,7 @@ export function open_ws() {
 
     g_ws.onopen = function (event) {
         gdata.status = wsStatus.WAITING;
-        console.log("WebSocket opened:", event);
+        //console.log("WebSocket opened:", event);
         reconnectAttempt = 0;
     }
 
@@ -83,7 +83,7 @@ export function open_ws() {
 
     g_ws.onclose = function (event) {
         gdata.status = wsStatus.DISCONNECTED;
-        console.log("WebSocket closed:", event);
+        //console.log("WebSocket closed:", event);
         scheduleReconnect();
     }
 

@@ -91,6 +91,10 @@ docker-all:
 web:
 	cd web && bun run build && mkdir -p build/static && cp build/index.html build/auth.html build/favicon.png build/Inter-Regular.woff build/Inter-Regular.woff2 build/RobotoMono-Regular.woff build/RobotoMono-Regular.woff2 build/static
 
+.PHONY: web-setup
+web-setup:
+	cd web && bun install
+
 # Help
 .PHONY: help
 help:
@@ -118,3 +122,11 @@ help:
 	@echo "Special targets:"
 	@echo "  all-targets        Build all supported targets"
 	@echo "  install-cross      Install all cross-compilation toolchains"
+	@echo "  docker             Build a Docker image"
+	@echo "  docker-all         Build a multi-arch Docker image"
+	@echo "  web                Build the web frontend"
+	@echo "  web-setup          Install web dependencies"
+	@echo ""
+	@echo "Miscellaneous:"
+	@echo "  help               Show this help message"
+	@echo ""

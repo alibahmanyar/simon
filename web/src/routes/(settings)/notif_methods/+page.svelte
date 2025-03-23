@@ -119,7 +119,6 @@
 			return;
 		}
 
-		console.log('Sending test notification', webhookForm);
 		testResult.innerHTML = 'Sending test notification...';
 
 		let url = webhookForm.config.WebHook.url.replaceAll(
