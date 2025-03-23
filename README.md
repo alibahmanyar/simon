@@ -1,25 +1,43 @@
 # Simon
+<a href="https://opensource.org/licenses/MIT"
+    ><img
+      src="https://img.shields.io/badge/License-MIT-teal.svg"
+      alt="License-MIT"
+  /></a>
+<a href="https://hub.docker.com/r/alibahmanyar/simon"
+    ><img
+      src="https://img.shields.io/docker/pulls/alibahmanyar/simon.svg"
+      alt="Docker"
+  /></a>
+<p align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-apache2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
-[![Docker](https://img.shields.io/docker/pulls/alibahmanyar/simon.svg)](https://hub.docker.com/r/alibahmanyar/simon)
+<img src="https://github.com/user-attachments/assets/d9214875-d2e5-4a00-8688-e2d435409d7b" width="256" height="256" />
+</p>
+<p align="center">
+A lightweight, web-based system monitor with alerts and Docker insights—all bundled into a single binary
+</p>
 
-> A lightweight, **web-based system monitor** with alerts and Docker insights—all bundled into a **single binary**.
-
----
 
 
-#### Dashboard Overview
+https://github.com/user-attachments/assets/281ac0c5-49ea-4c14-8aa4-00db7083a3a7
 
-![Dashboard Screenshot](docs/media/shot0.png)  
-<details>
-<summary>Screenshots</summary>
 
-</details>
 
-#### Alert Configuration
-![Alerts Screenshot](path/to/alerts.png)  
-*Set thresholds and view alerts to keep your system in check.*
+## Table of Contents
 
+- [Features](#-features)
+- [Setup](#-setup)
+  - [Using Prebuilt Binaries](#using-prebuilt-binaries)
+  - [Using Docker](#using-docker)
+  - [Using Docker Compose](#using-docker-compose)
+  - [Running Behind a Reverse Proxy](#running-behind-a-reverse-proxy)
+  - [Authentication](#authentication)
+- [Configuration](#️-configuration)
+- [Notifications and Alerts](#-notifications-and-alerts)
+- [Building from Source](#building-from-source)
+- [Screenshots](#screenshots)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 ---
 
 ## ✨ Features
@@ -33,7 +51,7 @@
 
 ---
 
-## 🔧 Installation
+## 🔧 Setup
 
 ### Using Prebuilt Binaries
 
@@ -45,7 +63,7 @@ Download the latest release for your platform from the [Releases](https://github
 chmod +x simon
 ./simon
 ```
-Just run the binary and Simon will start monitoring!
+Just run the binary and Simon will start monitoring! The web UI will be available at http://localhost:30000.
 
 ### Using Docker
 
@@ -74,7 +92,7 @@ services:
     environment:
       # Authentication configuration
       # Bcrypt hash for 'secret', replace with your own hash or remove to disable authentication
-      # Note: Dollar signs are escaped with additional dollar signs for Docker Compose
+      # Note: Dollar signs need to be escaped with additional dollar signs in Docker Compose files
       SIMON_PASSWORD_HASH: "$$2a$$12$$nmCGsgJ3ovx76sc/J8Bcs.Vn235KLQK7Cze83Kzm36a1v59QKVOO."
     volumes:
       - /sys:/sys:ro
@@ -88,7 +106,7 @@ docker-compose up -d
 ```
 **Notes:**
 
-1. For accesing docker stats, the user running Simon needs access to the Docker socket (`/var/run/docker.sock`). This can be achieved by:
+1. For accesing docker stats, the user account running Simon needs access to the Docker socket (`/var/run/docker.sock`). This can be achieved by:
    - Using a user that belongs to the `docker` group
    - Running as root
 
@@ -127,7 +145,7 @@ Simon can be deployed behind a reverse proxy like Nginx or Traefik:
 
 #### Traefik Configuration Example
 
-For Docker Compose with Traefik the below compose file can be used; it will provide reverse proxy ith TLS support, you only need to provide the `HOST` and `ACME_MAIL` environment variables:
+The compose file below can be used; it will provide a reverse proxy with TLS support. You only need to provide the `HOST` and `ACME_MAIL` environment variables:
 
 ```yaml
 services:
@@ -157,7 +175,7 @@ services:
     environment:
       # Authentication configuration
       # Bcrypt hash for 'secret', replace with your own hash or remove to disable authentication
-      # Note: Dollar signs are escaped with additional dollar signs for Docker Compose
+      # Note: Dollar signs need to be escaped with additional dollar signs in Docker Compose files
       SIMON_PASSWORD_HASH: "$$2a$$12$$nmCGsgJ3ovx76sc/J8Bcs.Vn235KLQK7Cze83Kzm36a1v59QKVOO."
     volumes:
       - /sys:/sys:ro
@@ -166,10 +184,10 @@ services:
       - ./simon-data:/app/simon-data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.dz.rule=Host(`${HOST}`)
-      - traefik.http.routers.dz.entrypoints=websecure
-      - traefik.http.routers.dz.tls.certresolver=myresolver
-      - traefik.http.services.dz.loadbalancer.server.port=30000
+      - traefik.http.routers.simon.rule=Host(`${HOST}`)
+      - traefik.http.routers.simon.entrypoints=websecure
+      - traefik.http.routers.simon.tls.certresolver=myresolver
+      - traefik.http.services.simon.loadbalancer.server.port=30000
 ```
 
 ### Authentication
@@ -181,7 +199,7 @@ Simon can be secured with password authentication:
 3. Pay attnetion to the dollar signs and escape them if needed
 
 ```bash
-# Using env var
+# Using env var (in Docker Compose, dollar signs need to be escaped as $$)
 SIMON_PASSWORD_HASH='$2a$12$YOUR_BCRYPT_HASH' simon
 
 # Or using CLI flag
@@ -196,7 +214,7 @@ Simon is configured through environment variables or command-line arguments:
 |--------|---------------------|----------|---------|-------------|
 | Address | `SIMON_ADDRESS` | `-a`, `--address` | `0.0.0.0` | Address to bind the server to |
 | Port | `SIMON_PORT` | `-p`, `--port` | `30000` | Port to bind the server to |
-| Update interval | `SIMON_UPDATE_INTERVAL` | `-T`, `--update-interval` | `2` | Metrics update interval in seconds (1-30) |
+| Update interval | `SIMON_UPDATE_INTERVAL` | `-T`, `--update-interval` | `2` | Metrics update interval in seconds (1-30 seconds) |
 | Password hash | `SIMON_PASSWORD_HASH` | `-H`, `--password-hash` | None | Bcrypt password hash for authentication |
 | Database path | `SIMON_DB_PATH` | `--db-path` | `./simon-data/simon.db` | Path to SQLite database |
 
@@ -207,7 +225,7 @@ Simon is configured through environment variables or command-line arguments:
 Simon provides an alert system to notify you about critical system events.
 
 ### Setting Up Notifications
-1. **Navigate to settings by clicking on the gear icon**
+1. **Navigate to settings by clicking on the gear icon in the top navigation bar**
 2. **Add Notification Method**
    - Name your notification method
    - Enter webhook URL for receiving alerts
@@ -227,7 +245,9 @@ Alerts are triggered when conditions are met for the specified duration, sending
 Simon consists of a Rust backend and a web frontend. Here's how to build it from source:
 
 ```bash
-# Rust toolchain and bun should be installed
+# Prerequisites: 
+# - Rust toolchain (https://rustup.rs/)
+# - Bun (https://bun.sh/docs/installation)
 
 # Clone the repository
 git clone https://github.com/alibahmanyar/simon.git
@@ -239,10 +259,45 @@ make web
 make release
 ```
 
+## Screenshots
+<details>
+<summary>View Screenshots</summary>
+  <p align="center">
+<img src="https://github.com/user-attachments/assets/2f22c4db-ffe6-49d1-a936-e683a88e7c4c" alt="">
+<figcaption>Main page</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/43c5d88d-1f86-4abe-b152-a08879cde52b" alt="">
+<figcaption>Storage info</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/bc358c99-0c89-4b65-8bef-fe852893546d" alt="">
+<figcaption>Network info</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/31c8910d-d2de-440f-87e4-32170a9d00b1" alt="">
+<figcaption>Docker insights</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/778ea4de-638e-451e-8015-0149509c74e9" alt="">
+<figcaption>Historical charts</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/77331c06-8a11-4735-b936-ae4d533c7dee" alt="">
+<figcaption>Notification methods overview</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/2b5a86ee-8292-417f-9410-f652575e5cad" alt="">
+<figcaption>Defining new notification</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/7a412432-ed84-4332-91e7-c2d9913aa3a6" alt="">
+<figcaption>Defining new alert</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/2a08a008-eaa3-4a6f-8816-d7d859989fd2" alt="">
+<figcaption>Alerts overview</figcaption>
+<br><br><br>
+<img src="https://github.com/user-attachments/assets/f4aba877-0f75-49b1-b1cd-630d6f50c064" alt="">
+<figcaption>Mobile views</figcaption>
+  </p>
+</details>
 
 ## License
 
-This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -253,7 +308,7 @@ This project utilizes several amazing open-source libraries and tools:
 - [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
 - [bollard](https://github.com/fussybeaver/bollard)
 - [tokio](https://tokio.rs/)
-- [clap](https://clap.rs/)
+- [clap](https://github.com/clap-rs/clap)
 - [serde](https://serde.rs/)
 
 ### Web Frontend
@@ -265,5 +320,5 @@ Thank you to all the contributors and maintainers of these projects!
 
 ---
 
-\
+
 Happy monitoring!
