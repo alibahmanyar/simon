@@ -21,7 +21,7 @@ A lightweight, web-based system monitor with alerts and Docker insights—all bu
 
 https://github.com/user-attachments/assets/281ac0c5-49ea-4c14-8aa4-00db7083a3a7
 
-
+✨ Check out [Live Demo](https://simon.upsta.ir)
 
 ## Table of Contents
 
