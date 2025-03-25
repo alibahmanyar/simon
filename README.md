@@ -11,7 +11,7 @@
   /></a>
 <p align="center">
 
-<img src="https://github.com/user-attachments/assets/d9214875-d2e5-4a00-8688-e2d435409d7b" width="256" height="256" />
+<img src="https://github.com/user-attachments/assets/d9214875-d2e5-4a00-8688-e2d435409d7b" width="192" height="192" />
 </p>
 <p align="center">
 A lightweight, web-based system monitor with alerts and Docker insights—all bundled into a single binary
