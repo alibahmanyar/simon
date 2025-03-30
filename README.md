@@ -258,8 +258,6 @@ make release
 ```
 
 ## Screenshots
-<details>
-<summary>View Screenshots</summary>
   <p align="center">
 <img src="https://github.com/user-attachments/assets/2f22c4db-ffe6-49d1-a936-e683a88e7c4c" alt="">
 <figcaption>Main page</figcaption>
@@ -291,7 +289,6 @@ make release
 <img src="https://github.com/user-attachments/assets/f4aba877-0f75-49b1-b1cd-630d6f50c064" alt="">
 <figcaption>Mobile views</figcaption>
   </p>
-</details>
 
 ## License
 
