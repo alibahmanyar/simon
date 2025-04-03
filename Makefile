@@ -1,9 +1,9 @@
-
 # Project variables
 PROJECT_NAME := simon
 VERSION := 0.1.0
 CARGO := cargo
 CROSS := cross
+RELEASE_DIR := target/github-release
 
 # Default target is the native build
 .PHONY: all
@@ -27,7 +27,7 @@ test:
 # Clean build artifacts
 .PHONY: clean
 clean:
-	$(CARGO) clean && rm -rf web/build
+	$(CARGO) clean && rm -rf web/build && rm -rf $(RELEASE_DIR)
 
 # Install the application
 .PHONY: install
@@ -73,6 +73,16 @@ linux-i686-musl:
 # Build all supported targets
 .PHONY: all-targets
 all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl
+	@echo "Creating release directory for GitHub artifacts..."
+	mkdir -p $(RELEASE_DIR)
+	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
+	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
+	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
+	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
+	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
+	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
+	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
+	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
 
 # Install cross-compilation toolchains
 .PHONY: install-cross

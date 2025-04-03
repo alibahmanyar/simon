@@ -313,7 +313,7 @@ mod tests {
     async fn gather_data() {
         use std::time::Instant;
         let mut now = Instant::now();
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         sys.refresh_all();
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
         sys.refresh_all();

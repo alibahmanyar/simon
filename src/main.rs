@@ -49,7 +49,7 @@ async fn main() {
     info!("Update interval: {} seconds", update_interval);
 
     // Create system instance for the main thread and web API
-    let sys = System::new_all();
+    let sys = System::new();
 
     let shared_sys = Arc::new(Mutex::new(sys));
 
