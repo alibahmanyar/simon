@@ -1,15 +1,11 @@
 use crate::db::Database;
-use crate::models::{Alert, AlertVar, NotificationConfig, NotificationMethod, WebHookNotif, EmailNotif, TelegramNotif};
+use crate::models::{Alert, AlertVar, NotificationConfig, NotificationMethod, WebHookNotif};
 use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use rusqlite::params;
 use tokio::time::{interval, Duration};
 use reqwest::Client;
 use std::sync::Arc;
-use lettre::{Message, SmtpTransport, Transport, message::header::ContentType};
-use lettre::transport::smtp::authentication::Credentials;
-use teloxide::prelude::*;
-use teloxide::types::Recipient;
 
 /// Main function to check alerts and send notifications
 pub async fn check_alerts(db_path: &str) {
@@ -228,9 +224,7 @@ fn update_alert_state(db: &Database, alert: &Alert) -> Result<(), String> {
 /// Send a notification through the configured method
 async fn send_notification(method: &NotificationMethod, message: &str) -> Result<(), String> {
     match &method.config {
-        NotificationConfig::WebHook(webhook) => send_webhook_notification(webhook, message).await,
-        NotificationConfig::Email(email) => send_email_notification(email, message).await,
-        NotificationConfig::Telegram(telegram) => send_telegram_notification(telegram, message).await,
+        NotificationConfig::WebHook(webhook) => send_webhook_notification(webhook, message).await
     }
 }
 
@@ -285,55 +279,6 @@ async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Res
         Ok(())
     } else {
         Err(format!("Webhook request failed with status: {}", response.status()))
-    }
-}
-
-/// Send an email notification
-async fn send_email_notification(email: &EmailNotif, message: &str) -> Result<(), String> {
-    // Create email message
-    let email_message = Message::builder()
-        .from(email.from.parse().map_err(|e| format!("Invalid from address: {}", e))?)
-        .to(email.to.parse().map_err(|e| format!("Invalid to address: {}", e))?)
-        .subject(email.subject.clone())
-        .header(ContentType::TEXT_PLAIN)
-        .body(email.body.replace("{notif_msg}", message))
-        .map_err(|e| format!("Failed to create email message: {}", e))?;
-
-    // Create SMTP transport
-    let credentials = Credentials::new(email.username.clone(), email.password.clone());
-    
-    let mailer = SmtpTransport::relay(&email.server)
-        .map_err(|e| format!("Failed to create SMTP transport: {}", e))?
-        .credentials(credentials)
-        .port(email.port)
-        .build();
-
-    // Send email
-    match mailer.send(&email_message) {
-        Ok(_) => {
-            info!("Email notification sent successfully");
-            Ok(())
-        },
-        Err(e) => Err(format!("Failed to send email: {}", e)),
-    }
-}
-
-/// Send a telegram notification
-async fn send_telegram_notification(telegram: &TelegramNotif, message: &str) -> Result<(), String> {
-    // Create Telegram bot
-    let bot = Bot::new(&telegram.token);
-    
-    // Parse chat ID
-    let chat_id = telegram.chat_id.parse::<i64>()
-        .map_err(|_| format!("Invalid chat ID: {}", telegram.chat_id))?;
-    
-    // Send message
-    match bot.send_message(Recipient::Id(ChatId(chat_id)), message).await {
-        Ok(_) => {
-            info!("Telegram notification sent successfully");
-            Ok(())
-        },
-        Err(e) => Err(format!("Failed to send Telegram message: {}", e)),
     }
 }
 

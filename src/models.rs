@@ -181,9 +181,7 @@ pub struct NotificationMethod {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NotificationConfig {
-    WebHook(WebHookNotif),
-    Email(EmailNotif),
-    Telegram(TelegramNotif),
+    WebHook(WebHookNotif)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -204,10 +202,4 @@ pub struct EmailNotif {
     pub to: String,
     pub subject: String,
     pub body: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TelegramNotif {
-    pub token: String,
-    pub chat_id: String,
 }

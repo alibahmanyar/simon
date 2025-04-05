@@ -50,15 +50,23 @@
 			// Fetch all data in parallel
 			const [alertsResponse, alertVarsResponse, notifMethodsResponse] = await Promise.all([
 				fetch(import.meta.env.PROD ? url('api/alerts') : 'http://localhost:30000/api/alerts'),
-				fetch(import.meta.env.PROD ? url('api/alert_vars') : 'http://localhost:30000/api/alert_vars'),
-				fetch(import.meta.env.PROD ? url('api/notif_methods') : 'http://localhost:30000/api/notif_methods')
+				fetch(
+					import.meta.env.PROD ? url('api/alert_vars') : 'http://localhost:30000/api/alert_vars'
+				),
+				fetch(
+					import.meta.env.PROD
+						? url('api/notif_methods')
+						: 'http://localhost:30000/api/notif_methods'
+				)
 			]);
-			
+
 			// Check responses and parse JSON
 			if (!alertsResponse.ok) console.error('Failed to fetch alerts:', alertsResponse.status);
-			if (!alertVarsResponse.ok) console.error('Failed to fetch alert vars:', alertVarsResponse.status);
-			if (!notifMethodsResponse.ok) console.error('Failed to fetch notification methods:', notifMethodsResponse.status);
-			
+			if (!alertVarsResponse.ok)
+				console.error('Failed to fetch alert vars:', alertVarsResponse.status);
+			if (!notifMethodsResponse.ok)
+				console.error('Failed to fetch notification methods:', notifMethodsResponse.status);
+
 			[alerts, alertVars, notifMethods] = await Promise.all([
 				alertsResponse.json(),
 				alertVarsResponse.json(),
