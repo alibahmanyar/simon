@@ -133,6 +133,7 @@
 
 				return matchesSearch && matchesFilter;
 			})
+			.slice()
 			.sort((a, b) => {
 				// Sort by status - running containers first then created ones
 				if (a.state === 'running' && b.state !== 'running') return -1;
@@ -177,7 +178,7 @@
 
 			{#if filteredContainers.length > 0}
 				<div class="container-grid">
-					{#each filteredContainers as container}
+					{#each filteredContainers as container (container.id)}
 						{@const name = container.name.replace(/^\//, '')}
 						{@const memoryPercentage =
 							container.mem_limit > 0
@@ -321,12 +322,12 @@
 			</div>
 			<div class="logs-modal-content" bind:this={logsContainer}>
 				{#if isLoadingLogs}
-					<div class="logs-loading" transition:fade>Loading logs...</div>
+					<div class="logs-loading">Loading logs...</div>
 				{:else if containerLogs.length === 0}
-					<div class="logs-empty" transition:fade>No logs available</div>
+					<div class="logs-empty">No logs available</div>
 				{:else}
-					<div class="logs-container" transition:fade>
-						{#each containerLogs as logLine}
+					<div class="logs-container">
+						{#each containerLogs as logLine, i (i)}
 							{@const log = formatLogLine(logLine)}
 							<div class="log-line {log.type.toLowerCase()}">
 								{#if log.timestamp}

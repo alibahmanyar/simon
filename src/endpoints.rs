@@ -38,7 +38,7 @@ pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
         path = "favicon.png";
         cache_control = "private, max-age=7200";
     } else if path.ends_with("Inter-Regular.woff") {
-        path= "Inter-Regular.woff"; 
+        path = "Inter-Regular.woff";
         cache_control = "public, max-age=15552000, immutable";
     } else if path.ends_with("Inter-Regular.woff2") {
         path = "Inter-Regular.woff2";
@@ -46,7 +46,7 @@ pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     } else if path.ends_with("RobotoMono-Regular.woff") {
         path = "RobotoMono-Regular.woff";
         cache_control = "public, max-age=15552000, immutable";
-    } else if path.ends_with("RobotoMono-Regular.woff2"){
+    } else if path.ends_with("RobotoMono-Regular.woff2") {
         path = "RobotoMono-Regular.woff2";
         cache_control = "public, max-age=15552000, immutable";
     } else if path.ends_with("auth") {
@@ -60,31 +60,31 @@ pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     match Asset::get(&path) {
         Some(content) => {
             let etag = hex::encode(content.metadata.sha256_hash());
-            
+
             // Check If-None-Match header
             if let Some(if_none_match) = request.headers().get("If-None-Match") {
-            if let Ok(if_none_match_str) = if_none_match.to_str() {
-                if if_none_match_str == etag {
-                return StatusCode::NOT_MODIFIED.into_response();
+                if let Ok(if_none_match_str) = if_none_match.to_str() {
+                    if if_none_match_str == etag {
+                        return StatusCode::NOT_MODIFIED.into_response();
+                    }
                 }
             }
-            }
-            
+
             (
-            [
-                (
-                "Content-Type",
-                mime_guess::from_path(path)
-                    .first_or_octet_stream()
-                    .essence_str(),
-                ),
-                ("ETag", etag.as_str()),
-                ("Cache-Control", cache_control),
-            ],
-            content.data.into_response(),
+                [
+                    (
+                        "Content-Type",
+                        mime_guess::from_path(path)
+                            .first_or_octet_stream()
+                            .essence_str(),
+                    ),
+                    ("ETag", etag.as_str()),
+                    ("Cache-Control", cache_control),
+                ],
+                content.data.into_response(),
             )
-            .into_response()
-        },
+                .into_response()
+        }
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -216,20 +216,22 @@ pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoRe
         stdout: true,
         stderr: true,
         timestamps: true,
+        tail: "2000".to_string(),
         ..Default::default()
     });
 
     let mut logs = String::new();
-    // Fetch and print logs
+    const MAX_SIZE: usize = 2097152; // Limit logs to 2 MB max
+
     let mut logs_stream = docker.logs(&container_id, options);
     while let Some(log_result) = logs_stream.next().await {
         match log_result {
             Ok(log_output) => match log_output {
                 bollard::container::LogOutput::StdOut { message } => {
-                    logs.push_str(format!("STDOUT|{}", String::from_utf8_lossy(&message)).as_str());
+                    logs.push_str(format!("O|{}", String::from_utf8_lossy(&message)).as_str());
                 }
                 bollard::container::LogOutput::StdErr { message } => {
-                    logs.push_str(format!("STDERR|{}", String::from_utf8_lossy(&message)).as_str());
+                    logs.push_str(format!("E|{}", String::from_utf8_lossy(&message)).as_str());
                 }
                 _ => {}
             },
@@ -237,6 +239,9 @@ pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoRe
                 error!("Error getting logs for container {}: {}", container_id, e);
                 break;
             }
+        }
+        if logs.len() > MAX_SIZE {
+            break;
         }
     }
 
