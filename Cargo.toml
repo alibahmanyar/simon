@@ -28,6 +28,7 @@ uuid = {version = "1.16.0", features = ["v4"]}
 log = "0.4.26"
 env_logger = "0.10"
 reqwest = { version = "0.12.14", features = ["rustls-tls"] }
+openssl = { version = "0.10.72", features = ["vendored"] }
 rust-embed = "8.6.0"
 hex = "0.4.3"
 mime_guess = "2.0.5"
