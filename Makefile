@@ -1,6 +1,5 @@
 # Project variables
 PROJECT_NAME := simon
-VERSION := 0.1.0
 CARGO := cargo
 CROSS := cross
 RELEASE_DIR := target/github-release
@@ -108,7 +107,7 @@ web-setup:
 # Help
 .PHONY: help
 help:
-	@echo "$(PROJECT_NAME) v$(VERSION) Makefile help:"
+	@echo "$(PROJECT_NAME) Makefile help:"
 	@echo ""
 	@echo "Standard targets:"
 	@echo "  all          Default target, builds in debug mode"
