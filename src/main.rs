@@ -14,7 +14,7 @@ use axum::{
 use std::net::SocketAddr;
 use db::db_update;
 use endpoints::{
-    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d, ws_handler_g, ws_handler_p
+    add_alert, add_notif_method,export_historical_data, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d, ws_handler_g, ws_handler_p
 };
 use log::{error, info, debug};
 use std::sync::{Arc, Mutex};
@@ -133,6 +133,7 @@ async fn main() {
         .route("/container_logs/{continer_id}", get(get_container_logs))
         .route("/reqinfo", get(req_info))
         .route("/api/historical", get(historical_data))
+        .route("/api/export", get(export_historical_data))
         .route("/api/notif_methods", post(add_notif_method))
         .route("/api/notif_methods", get(get_notif_methods))
         .route("/api/notif_methods/{id}", delete(delete_notif_method))

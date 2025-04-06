@@ -1,22 +1,22 @@
 use crate::collect_info;
 use crate::config::Config;
 use crate::db::Database;
+use crate::models::{HistoricalQueryOptions};
+use csv::Writer;
 use crate::models::{self, NotificationMethod};
 use axum::Json;
 use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Path, Query, Request};
-use axum::http::StatusCode;
 use axum::{
-    extract::{ConnectInfo, State, WebSocketUpgrade},
-    http::HeaderMap,
-    response::{Html, IntoResponse},
+    extract::{ConnectInfo, State, WebSocketUpgrade, Extension, Path, Request, Query},
+    http::{HeaderMap, header, StatusCode},
+    response::{Html, IntoResponse, Response},
 };
+
 use bollard::container::LogsOptions;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
-use models::HistoricalQueryOptions;
 use rust_embed::Embed;
 use serde_json;
 use std::net::SocketAddr;
@@ -30,6 +30,66 @@ use tokio::{
 #[derive(Embed)]
 #[folder = "web/build/static"]
 struct Asset;
+
+pub async fn export_historical_data(
+    Query(query): Query<HistoricalQueryOptions>,
+    Extension(db): Extension<Arc<Database>>,
+) -> Response {
+    let series = match db.query_historical_data(&query) {
+        Ok(s) => {
+            log::info!("Fetched {} historical series", s.len());
+            s
+        },
+        Err(e) => {
+            let err_msg = format!("Database error: {}", e);
+            log::error!("{}", err_msg);
+            return (StatusCode::INTERNAL_SERVER_ERROR, err_msg).into_response();
+        }
+    };
+
+    let mut wtr = csv::Writer::from_writer(vec![]);
+    if let Err(e) = wtr.write_record(&["Category", "Series Type", "Resource Name", "Timestamp", "Value"]) {
+        let err_msg = format!("CSV write error: {}", e);
+        log::error!("{}", err_msg);
+        return (StatusCode::INTERNAL_SERVER_ERROR, err_msg).into_response();
+    }
+
+    for series_item in series {
+        for (timestamp, value) in series_item.timestamps.iter().zip(series_item.values.iter()) {
+            if let Err(e) = wtr.write_record(&[
+                series_item.cat.as_str(),
+                series_item.stype.as_str(),
+                series_item.name.as_str(),
+                &timestamp.to_string(),
+                &value.to_string(),
+            ]) {
+                let err_msg = format!("CSV write error: {}", e);
+                log::error!("{}", err_msg);
+                return (StatusCode::INTERNAL_SERVER_ERROR, err_msg).into_response();
+            }
+        }
+    }
+
+    let csv_data = match wtr.into_inner() {
+        Ok(data) => data,
+        Err(e) => {
+            let err_msg = format!("CSV conversion error: {}", e);
+            log::error!("{}", err_msg);
+            return (StatusCode::INTERNAL_SERVER_ERROR, err_msg).into_response();
+        }
+    };
+
+    let mut response = Response::new(csv_data.into());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        "text/csv".parse().unwrap(),
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        "attachment; filename=\"historical_data.csv\"".parse().unwrap(),
+    );
+    response
+}
 
 pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     let mut path = request.uri().path();
