@@ -28,7 +28,7 @@ use tokio::{
 };
 
 #[derive(Embed)]
-#[folder = "web/build/static"]
+#[folder = "/home/adesoji/Desktop/kayproject"]
 struct Asset;
 
 pub async fn export_historical_data(

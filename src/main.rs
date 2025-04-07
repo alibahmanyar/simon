@@ -9,7 +9,10 @@ mod logging;
 
 use alerts::check_alerts;
 use axum::{
-    routing::{delete, get, post}, Router
+    extract::Extension,
+    routing::{delete, get, post},
+    Router,
+    http::{StatusCode, header},
 };
 use std::net::SocketAddr;
 use db::db_update;
@@ -21,6 +24,10 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{self, time::Duration};
 use tower_http::compression::CompressionLayer;
+use simon::db::Database;
+use simon::endpoints::export_historical_data;
+
+let db = Arc::new(Database::new(&config.db_path).expect("Database initialization failed"));
 
 async fn sys_refresh(sys: Arc<Mutex<System>>, update_interval: u64) {
     loop {
@@ -118,6 +125,15 @@ async fn main() {
     });
     debug!("Alerts checking background task started");
 
+    let db_for_export = Arc::new(db::Database::new(&config.db_path).expect("Database initialization failed"));
+    let export_routes = Router::new()
+        .route("/api/export", get(export_historical_data))
+        .layer(Extension(db_for_export.clone()))
+        .handle_error(|err: axum::Error| async move {
+            log::error!("Request error: {}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        });
+
     let mut app = Router::new()
         .route("/", get(serve_static))
         .route("/favicon.png", get(serve_static))
@@ -133,7 +149,6 @@ async fn main() {
         .route("/container_logs/{continer_id}", get(get_container_logs))
         .route("/reqinfo", get(req_info))
         .route("/api/historical", get(historical_data))
-        .route("/api/export", get(export_historical_data))
         .route("/api/notif_methods", post(add_notif_method))
         .route("/api/notif_methods", get(get_notif_methods))
         .route("/api/notif_methods/{id}", delete(delete_notif_method))
@@ -142,6 +157,7 @@ async fn main() {
         .route("/api/alerts/{id}", delete(delete_alert))
         .route("/api/alert_vars", get(get_alert_vars))
         .fallback(get(serve_static))
+        .merge(export_routes)
         .with_state((shared_sys, config.clone()));
 
     if let Some(_) = &config.password_hash {
