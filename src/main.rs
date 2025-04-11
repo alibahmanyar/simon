@@ -9,18 +9,23 @@ mod logging;
 
 use alerts::check_alerts;
 use axum::{
-    routing::{delete, get, post}, Router
+    extract::Extension,
+    routing::{delete, get, post},
+    Router,
+    http::{StatusCode, header},
 };
-use std::net::SocketAddr;
 use db::db_update;
 use endpoints::{
-    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d, ws_handler_g, ws_handler_p
+    add_alert, add_notif_method, delete_alert, delete_notif_method, export_historical_data,
+    get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info,
+    serve_static, ws_handler_d, ws_handler_g, ws_handler_p,
 };
-use log::{error, info, debug};
+use log::{debug, error, info};
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{self, time::Duration};
-use tower_http::compression::CompressionLayer;
+use tower_http::trace::TraceLayer;
 
 async fn sys_refresh(sys: Arc<Mutex<System>>, update_interval: u64) {
     loop {
@@ -42,7 +47,7 @@ async fn sys_refresh(sys: Arc<Mutex<System>>, update_interval: u64) {
 #[tokio::main]
 async fn main() {
     logging::setup();
-    
+
     // Parse command line arguments
     let config = config::parse_config();
     let update_interval = config.update_interval;
@@ -50,13 +55,11 @@ async fn main() {
 
     // Create system instance for the main thread and web API
     let sys = System::new();
-
     let shared_sys = Arc::new(Mutex::new(sys));
-
     let bg_sys = shared_sys.clone();
     let db_sys = shared_sys.clone();
 
-    // System refresh background task with restart on panic
+    // Spawn system refresh background task with restart on panic
     tokio::spawn(async move {
         loop {
             let result = tokio::task::spawn(sys_refresh(bg_sys.clone(), update_interval)).await;
@@ -65,17 +68,14 @@ async fn main() {
                     error!("System refresh task panicked: {}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                     info!("Restarting system refresh task");
-                    // Continue the loop to restart the task
                 }
-                _ => {
-                    break; // This should not happen as sys_refresh runs indefinitely
-                }
+                _ => break, // sys_refresh runs indefinitely
             }
         }
     });
     debug!("System refresh background task started");
 
-    // Database update background task with restart on panic
+    // Spawn database update background task with restart on panic
     let db_path = config.db_path.clone();
     tokio::spawn(async move {
         loop {
@@ -87,18 +87,15 @@ async fn main() {
                     error!("Database update task panicked: {}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                     info!("Restarting database update task");
-                    // Continue the loop to restart the task
                 }
-                _ => {
-                    break; // This should not happen as db_update runs indefinitely
-                }
+                _ => break,
             }
         }
     });
     debug!("Database update background task started");
 
+    // Spawn alerts checking background task with restart on panic
     let db_path = config.db_path.clone();
-    // Check alerts background task with restart on panic
     tokio::spawn(async move {
         loop {
             let db_path = db_path.clone();
@@ -108,16 +105,24 @@ async fn main() {
                     error!("Check alerts task panicked: {}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                     info!("Restarting check alerts task");
-                    // Continue the loop to restart the task
                 }
-                _ => {
-                    break; // This should not happen as db_update runs indefinitely
-                }
+                _ => break,
             }
         }
     });
     debug!("Alerts checking background task started");
 
+    // Create a dedicated router branch for the export endpoint.
+    let db_for_export = Arc::new(db::Database::new(&config.db_path).expect("Database initialization failed"));
+    let export_routes = Router::new()
+        .route("/api/export", get(export_historical_data))
+        .layer(Extension(db_for_export.clone()))
+        .handle_error(|err: axum::Error| async move {
+            log::error!("Request error: {}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        });
+
+    // Build the main router and merge export_routes.
     let mut app = Router::new()
         .route("/", get(serve_static))
         .route("/favicon.png", get(serve_static))
@@ -142,6 +147,8 @@ async fn main() {
         .route("/api/alert_vars", get(get_alert_vars))
         .fallback(get(serve_static))
         .with_state((shared_sys, config.clone()));
+        .merge(export_routes);
+        
 
     if let Some(_) = &config.password_hash {
         app = auth::apply_auth_middleware(app, config.clone());
@@ -149,15 +156,17 @@ async fn main() {
     } else {
         info!("Running without authentication");
     }
-    app = app.layer(CompressionLayer::new());
 
-    info!(
-        "Server running on http://{}:{}",
-        config.address, config.port
-    );
+    app = app
+        .layer(CompressionLayer::new())
+        .layer(TraceLayer::new_for_http());
+
+    info!("Server running on http://{}:{}", config.address, config.port);
 
     let listener = tokio::net::TcpListener::bind(config.socket_address())
         .await
         .unwrap();
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .await
+        .unwrap();
 }
