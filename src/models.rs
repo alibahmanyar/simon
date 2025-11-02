@@ -164,8 +164,8 @@ pub struct Alert {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AlertVar{
-    pub cat: String, // Category
+pub struct AlertVar {
+    pub cat: String,   // Category
     pub var: String,   // variable name (ex. rx_rate)
     pub resrc: String, // Resource name (ex. eth0)
 }
@@ -181,7 +181,7 @@ pub struct NotificationMethod {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NotificationConfig {
-    WebHook(WebHookNotif)
+    WebHook(WebHookNotif),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

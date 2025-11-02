@@ -10,25 +10,25 @@ lto = true
 axum = { version = "^0.8", features = ["ws"] }
 tokio = { version = "^1.0", features = ["full", "macros"] }
 serde = { version = "^1.0", features = ["derive"] }
-sysinfo = "^0.33.1"
+sysinfo = "^0.37"
 futures = "^0.3"
 serde_json = "^1.0"
 tower-http = { version = "0.6.1", features = ["compression-full", "decompression-full"] }
-bollard = "^0.15"
+bollard = "^0.18"
 futures-util = "^0.3"
-rusqlite = { version = "^0.28.0", features = ["bundled"] }
+rusqlite = { version = "^0.37", features = ["bundled"] }
 chrono = "^0.4"
 flate2 = "^1.1.0"
 tower = "^0.5.2"
-clap = { version = "4.4", features = ["derive", "env"] }
+clap = { version = "^4.5", features = ["derive", "env"] }
 jsonwebtoken = "9.3.1"
 rand = "0.9.0"
 bcrypt = "0.17.0"
 uuid = {version = "1.16.0", features = ["v4"]}
-log = "0.4.26"
+log = "^0.4"
 env_logger = "0.10"
-reqwest = { version = "0.12.14", features = ["rustls-tls"] }
-openssl = { version = "0.10.72", features = ["vendored"] }
-rust-embed = "8.6.0"
+reqwest = { version = "^0.12", features = ["rustls-tls"] }
+openssl = { version = "0.10.74", features = ["vendored"] }
+rust-embed = "8.8.0"
 hex = "0.4.3"
 mime_guess = "2.0.5"

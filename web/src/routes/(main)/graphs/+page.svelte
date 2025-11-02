@@ -27,13 +27,12 @@
 	// Get available timespan options based on current resolution
 	function getAvailableTimespanOptions() {
 		if (resolution === 'hour') {
-			return timespanOptions.filter(option => option.value >= 21600);
+			return timespanOptions.filter((option) => option.value >= 21600);
 		} else if (resolution === 'day') {
-			return timespanOptions.filter(option => option.value >= 604800);
+			return timespanOptions.filter((option) => option.value >= 604800);
 		} else if (resolution === 'minute') {
-			return timespanOptions.filter(option => option.value <= 2592000);
-		} 
-		else {
+			return timespanOptions.filter((option) => option.value <= 2592000);
+		} else {
 			return timespanOptions;
 		}
 	}
@@ -49,15 +48,15 @@
 	function isNegligible(series: HistoricalSeries): boolean {
 		// Check name patterns
 		if (
-			series.name.includes('overlay') && series.cat == 'disk' ||
-			series.name.includes('/boot') && series.cat == 'disk' ||
-			series.name.includes('veth') && series.cat == 'net' ||
-			series.name.includes('br-') && series.cat == 'net' ||
-			series.name.includes('vnet') && series.cat == 'net' ||
-			series.name.includes('docker') && series.cat == 'net' ||
-			series.name.includes('tun') && series.cat == 'net' ||
-			series.name.includes('wg') && series.cat == 'net' ||
-			series.name == 'lo' && series.cat == 'net'
+			(series.name.includes('overlay') && series.cat == 'disk') ||
+			(series.name.includes('/boot') && series.cat == 'disk') ||
+			(series.name.includes('veth') && series.cat == 'net') ||
+			(series.name.includes('br-') && series.cat == 'net') ||
+			(series.name.includes('vnet') && series.cat == 'net') ||
+			(series.name.includes('docker') && series.cat == 'net') ||
+			(series.name.includes('tun') && series.cat == 'net') ||
+			(series.name.includes('wg') && series.cat == 'net') ||
+			(series.name == 'lo' && series.cat == 'net')
 		) {
 			return true;
 		}
@@ -137,19 +136,19 @@
 	async function fetchHistoricalData(): Promise<HistoricalSeries[]> {
 		isLoading = true;
 		connectionError = false; // Reset connection error state
-		
+
 		try {
 			const start_time = Math.floor(Date.now() / 1000 - timespan);
 			const addr = import.meta.env.PROD
 				? `/api/historical?resolution=${resolution}&start_time=${start_time}`
 				: `http://localhost:30000/api/historical?resolution=${resolution}&start_time=${start_time}`;
-			
+
 			const response = await fetch(addr);
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! Status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 
 			// Filter out less important series if showAll is false
@@ -221,7 +220,10 @@
 			};
 
 			const chart = createChart(container, chartOptions);
-			if (seriesData[i].cat === 'net' || seriesData[i].cat === 'disk' && seriesData[i].stype !== 'disk_usage') {
+			if (
+				seriesData[i].cat === 'net' ||
+				(seriesData[i].cat === 'disk' && seriesData[i].stype !== 'disk_usage')
+			) {
 				if (seriesData[i].stype.toLowerCase().includes('rate')) {
 					chart.applyOptions({
 						localization: {
@@ -257,13 +259,13 @@
 
 	async function refreshCharts() {
 		if (resolution === 'hour' && timespan < 21600) {
-				timespan = 21600;
-		} 
+			timespan = 21600;
+		}
 		if (resolution === 'day' && timespan < 604800) {
-				timespan = 604800;
+			timespan = 604800;
 		}
 		if (resolution === 'minute' && timespan > 2592000) {
-				timespan = 2592000;
+			timespan = 2592000;
 		}
 		seriesData = [];
 		seriesData = await fetchHistoricalData();
@@ -302,15 +304,13 @@
 			</select>
 		</div>
 
-		
-			<label>
-				<span>Show All</span>
-				<label class="switch">
-					<input type="checkbox" bind:checked={showAll} onchange={refreshCharts}/>
-					<span class="slider"></span>
-				</label>
+		<label>
+			<span>Show All</span>
+			<label class="switch">
+				<input type="checkbox" bind:checked={showAll} onchange={refreshCharts} />
+				<span class="slider"></span>
 			</label>
-		
+		</label>
 	</div>
 
 	{#if isLoading}
@@ -384,5 +384,4 @@
 		height: 250px;
 		background: transparent;
 	}
-
 </style>

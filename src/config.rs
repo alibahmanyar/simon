@@ -99,6 +99,6 @@ pub fn parse_config() -> Config {
     }
 
     debug!("Config: {:?}", config);
-    
+
     config
 }

@@ -1,22 +1,25 @@
+mod alerts;
 mod auth;
 mod collect_info;
 mod config;
 mod db;
 mod endpoints;
-mod models;
-mod alerts;
 mod logging;
+mod models;
 
 use alerts::check_alerts;
 use axum::{
-    routing::{delete, get, post}, Router
+    Router,
+    routing::{delete, get, post},
 };
-use std::net::SocketAddr;
 use db::db_update;
 use endpoints::{
-    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts, get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d, ws_handler_g, ws_handler_p
+    add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts,
+    get_container_logs, get_notif_methods, historical_data, req_info, serve_static, ws_handler_d,
+    ws_handler_g, ws_handler_p,
 };
-use log::{error, info, debug};
+use log::{debug, error, info};
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{self, time::Duration};
@@ -42,7 +45,7 @@ async fn sys_refresh(sys: Arc<Mutex<System>>, update_interval: u64) {
 #[tokio::main]
 async fn main() {
     logging::setup();
-    
+
     // Parse command line arguments
     let config = config::parse_config();
     let update_interval = config.update_interval;
@@ -159,5 +162,10 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(config.socket_address())
         .await
         .unwrap();
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }

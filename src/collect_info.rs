@@ -249,12 +249,12 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
             - stats.precpu_stats.cpu_usage.total_usage as f64;
         let system_delta = stats.cpu_stats.system_cpu_usage.unwrap_or(0) as f64
             - stats.precpu_stats.system_cpu_usage.unwrap_or(0) as f64;
-        let cpu_usage = 100.0 * if system_delta > 0.0 && cpu_delta > 0.0 {
-            (cpu_delta / system_delta)
-                * (stats.cpu_stats.online_cpus.unwrap_or(1) as f64)
-        } else {
-            0.0
-        };
+        let cpu_usage = 100.0
+            * if system_delta > 0.0 && cpu_delta > 0.0 {
+                (cpu_delta / system_delta) * (stats.cpu_stats.online_cpus.unwrap_or(1) as f64)
+            } else {
+                0.0
+            };
 
         // Parse ports
         let ports = container

@@ -1,4 +1,6 @@
-use crate::models::{AlertVar, GeneralInfo, HistoricalQueryOptions, HistoricalSeries, ALERT_VARIABLES};
+use crate::models::{
+    ALERT_VARIABLES, AlertVar, GeneralInfo, HistoricalQueryOptions, HistoricalSeries,
+};
 use log::error;
 use rusqlite::{Connection, Result, params};
 use std::sync::{Arc, Mutex};

@@ -1,4 +1,4 @@
-use log::{debug, LevelFilter};
+use log::{LevelFilter, debug};
 
 pub fn setup() {
     // Initialize logger with timestamp and module path
@@ -10,13 +10,15 @@ pub fn setup() {
 
     // Print ASCII art banner
     let ver = env!("CARGO_PKG_VERSION");
-    println!("\n
+    println!(
+        "\n
 ███████ ██ ███    ███  ██████  ███    ██
 ██      ██ ████  ████ ██    ██ ████   ██
 ███████ ██ ██ ████ ██ ██    ██ ██ ██  ██
      ██ ██ ██  ██  ██ ██    ██ ██  ██ ██
 ███████ ██ ██      ██  ██████  ██   ████
-                 v{ver}\n");
-    
+                 v{ver}\n"
+    );
+
     debug!("Logging initialized at {:?}", chrono::Local::now());
 }

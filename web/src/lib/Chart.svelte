@@ -1,13 +1,17 @@
 <script lang="ts">
 	import chartjs, { type ChartConfiguration } from 'chart.js/auto';
 
-	let { timestamps, data, labels, colors, bg_colors, fills, yAxisLabel, autoScale, } = $props();
+	let { timestamps, data, labels, colors, bg_colors, fills, yAxisLabel, autoScale } = $props();
 
 	let chartCanvas: HTMLCanvasElement;
 	var chart: chartjs;
 	const maxDataPoints = 60;
 
-	let timestamps_padded = $derived(Array(maxDataPoints - timestamps.length).fill(0).concat(timestamps));
+	let timestamps_padded = $derived(
+		Array(maxDataPoints - timestamps.length)
+			.fill(0)
+			.concat(timestamps)
+	);
 
 	let initialized = false;
 	const getDataset = (label: string, color: string, bg_color: string, fill: boolean) => ({
@@ -16,7 +20,7 @@
 		borderColor: color,
 		tension: 0.3,
 		fill: fill,
-		backgroundColor: bg_color,
+		backgroundColor: bg_color
 	});
 
 	let datasets = [];
@@ -80,7 +84,11 @@
 			// pre pad all arays to maxDataPoints
 			let data_padded = [];
 			for (let i = 0; i < data.length; i++) {
-				data_padded.push(Array(maxDataPoints - data[i].length).fill(0).concat(data[i]));
+				data_padded.push(
+					Array(maxDataPoints - data[i].length)
+						.fill(0)
+						.concat(data[i])
+				);
 			}
 
 			if (!initialized) {

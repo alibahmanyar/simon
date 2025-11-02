@@ -7,7 +7,11 @@
 	var chart: chartjs;
 	const maxDataPoints = 60;
 
-	let timestamps_padded = $derived(Array(maxDataPoints - timestamps.length).fill(0).concat(timestamps));
+	let timestamps_padded = $derived(
+		Array(maxDataPoints - timestamps.length)
+			.fill(0)
+			.concat(timestamps)
+	);
 	let tcores = $derived(transpose(cores));
 
 	let initialized = false;
@@ -77,12 +81,18 @@
 
 		return a[0].map((_, colIndex) => a.map((row) => row[colIndex]));
 	}
-	
+
 	$effect(() => {
 		if (data.length > 0) {
 			// pre pad all arays to maxDataPoints
-			let data_padded = Array(maxDataPoints - data.length).fill(0).concat(data);
-			let cores_padded = tcores.map((core: any) => Array(maxDataPoints - core.length).fill(0).concat(core));
+			let data_padded = Array(maxDataPoints - data.length)
+				.fill(0)
+				.concat(data);
+			let cores_padded = tcores.map((core: any) =>
+				Array(maxDataPoints - core.length)
+					.fill(0)
+					.concat(core)
+			);
 
 			if (!initialized) {
 				initialized = true;

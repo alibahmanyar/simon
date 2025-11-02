@@ -1,254 +1,252 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simon - Authentication</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-        :root{
-            background: #171721;
-        }
-        body {
-            background: #0f0f13;
-            color: #e1e1e3;
-            padding: 2rem;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #0f0f13 0%, #171721 100%);
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 2.5rem;
-            background: linear-gradient(45deg, #4ade80, #3b82f6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(74, 222, 128, 0.2);
-        }
-        
-        .dashboard {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: calc(100vh - 4rem);
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .auth-card {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 15px;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            transition: all 0.3s ease;
-            width: 100%;
-            max-width: 400px;
-        }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Simon - Authentication</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+				font-family: 'Inter', sans-serif;
+			}
+			:root {
+				background: #171721;
+			}
+			body {
+				background: #0f0f13;
+				color: #e1e1e3;
+				padding: 2rem;
+				min-height: 100vh;
+				background: linear-gradient(135deg, #0f0f13 0%, #171721 100%);
+			}
 
-        .auth-card:hover {
-            border-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(74, 222, 128, 0.1);
-        }
+			h1 {
+				text-align: center;
+				margin-bottom: 2rem;
+				font-size: 2.5rem;
+				background: linear-gradient(45deg, #4ade80, #3b82f6);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+				text-shadow: 0 0 30px rgba(74, 222, 128, 0.2);
+			}
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
+			.dashboard {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				min-height: calc(100vh - 4rem);
+				max-width: 1200px;
+				margin: 0 auto;
+			}
 
-        input {
-            width: 100%;
-            padding: 0.8rem 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e1e1e3;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
+			.auth-card {
+				background: rgba(255, 255, 255, 0.03);
+				border-radius: 15px;
+				padding: 2rem;
+				backdrop-filter: blur(10px);
+				border: 1px solid rgba(255, 255, 255, 0.05);
+				box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+				transition: all 0.3s ease;
+				width: 100%;
+				max-width: 400px;
+			}
 
-        input:focus {
-            outline: none;
-            border-color: rgba(74, 222, 128, 0.5);
-            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
-        }
+			.auth-card:hover {
+				border-color: rgba(255, 255, 255, 0.1);
+				box-shadow: 0 8px 32px 0 rgba(74, 222, 128, 0.1);
+			}
 
-        input::placeholder {
-            color: rgba(225, 225, 227, 0.5);
-        }
+			.form-group {
+				margin-bottom: 1.5rem;
+			}
 
-        .auth-button {
-            width: 100%;
-            padding: 0.8rem;
-            background: linear-gradient(90deg, #3b82f6, #4ade80);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+			input {
+				width: 100%;
+				padding: 0.8rem 1rem;
+				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				color: #e1e1e3;
+				border-radius: 8px;
+				font-size: 1rem;
+				transition: all 0.3s ease;
+			}
 
-        .auth-button:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.2);
-        }
+			input:focus {
+				outline: none;
+				border-color: rgba(74, 222, 128, 0.5);
+				box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+			}
 
-        .auth-button:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
+			input::placeholder {
+				color: rgba(225, 225, 227, 0.5);
+			}
 
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            color: rgb(239, 68, 68);
-            padding: 0.8rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            text-align: center;
-            font-size: 0.9rem;
-            display: none;
-        }
+			.auth-button {
+				width: 100%;
+				padding: 0.8rem;
+				background: linear-gradient(90deg, #3b82f6, #4ade80);
+				border: none;
+				border-radius: 8px;
+				color: white;
+				font-weight: 600;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+			}
 
-        .loading-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-        }
+			.auth-button:hover {
+				opacity: 0.9;
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(74, 222, 128, 0.2);
+			}
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+			.auth-button:disabled {
+				opacity: 0.7;
+				cursor: not-allowed;
+				transform: none;
+			}
 
-        @media (max-width: 480px) {
-            .auth-card {
-                padding: 1.5rem;
-                margin: 0 1rem;
-            }
+			.error-message {
+				background: rgba(239, 68, 68, 0.1);
+				color: rgb(239, 68, 68);
+				padding: 0.8rem;
+				border-radius: 8px;
+				margin-bottom: 1.5rem;
+				text-align: center;
+				font-size: 0.9rem;
+				display: none;
+			}
 
-            h1 {
-                font-size: 2rem;
-                margin-bottom: 1.5rem;
-            }
+			.loading-spinner {
+				width: 20px;
+				height: 20px;
+				border: 2px solid rgba(255, 255, 255, 0.3);
+				border-radius: 50%;
+				border-top-color: white;
+				animation: spin 0.8s linear infinite;
+				display: inline-block;
+			}
 
-            body {
-                padding: 0;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <div class="auth-card">
-            <h1>Simon</h1>
-            <form id="authForm">
-                <div class="form-group">
-                    <input
-                        type="password"
-                        id="password"
-                        placeholder="Enter password"
-                        autocomplete="current-password"
-                        required
-                    />
-                </div>
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
 
-                <div id="errorMessage" class="error-message"></div>
+			@media (max-width: 480px) {
+				.auth-card {
+					padding: 1.5rem;
+					margin: 0 1rem;
+				}
 
-                <button type="submit" class="auth-button" id="submitButton">
-                    Sign In
-                </button>
-            </form>
-        </div>
-    </div>
+				h1 {
+					font-size: 2rem;
+					margin-bottom: 1.5rem;
+				}
 
-    <script>
-        let password = '';
-        let error = '';
-        let loading = false;
-        
-        const passwordInput = document.getElementById('password');
-        const errorElement = document.getElementById('errorMessage');
-        const submitButton = document.getElementById('submitButton');
-        const authForm = document.getElementById('authForm');
+				body {
+					padding: 0;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="dashboard">
+			<div class="auth-card">
+				<h1>Simon</h1>
+				<form id="authForm">
+					<div class="form-group">
+						<input
+							type="password"
+							id="password"
+							placeholder="Enter password"
+							autocomplete="current-password"
+							required
+						/>
+					</div>
 
-        passwordInput.addEventListener('input', function(e) {
-            password = e.target.value;
-        });
-        
-        authForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            handleSubmit();
-        });
+					<div id="errorMessage" class="error-message"></div>
 
-        async function handleSubmit() {
-            setLoading(true);
-            clearError();
-            
-            try {
-                const url = window.location.href;
+					<button type="submit" class="auth-button" id="submitButton">Sign In</button>
+				</form>
+			</div>
+		</div>
 
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: 'password=' + password
-                });
+		<script>
+			let password = '';
+			let error = '';
+			let loading = false;
 
-                if (res.status === 200) {
-                    window.location.href = window.location.href.slice(0, -"/auth".length);
-                } else if (res.status === 401) {
-                    showError('Wrong password');
-                } else {
-                    showError('Connection error. Please try again.');
-                }
-            } catch (e) {
-                showError('Connection error. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        }
-        
-        function setLoading(isLoading) {
-            loading = isLoading;
-            submitButton.disabled = isLoading;
-            
-            if (isLoading) {
-                submitButton.innerHTML = '<span class="loading-spinner"></span>';
-            } else {
-                submitButton.textContent = 'Sign In';
-            }
-        }
-        
-        function showError(message) {
-            error = message;
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
-        }
-        
-        function clearError() {
-            error = '';
-            errorElement.textContent = '';
-            errorElement.style.display = 'none';
-        }
-    </script>
-</body>
+			const passwordInput = document.getElementById('password');
+			const errorElement = document.getElementById('errorMessage');
+			const submitButton = document.getElementById('submitButton');
+			const authForm = document.getElementById('authForm');
+
+			passwordInput.addEventListener('input', function (e) {
+				password = e.target.value;
+			});
+
+			authForm.addEventListener('submit', async function (e) {
+				e.preventDefault();
+				handleSubmit();
+			});
+
+			async function handleSubmit() {
+				setLoading(true);
+				clearError();
+
+				try {
+					const url = window.location.href;
+
+					const res = await fetch(url, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded'
+						},
+						body: 'password=' + password
+					});
+
+					if (res.status === 200) {
+						window.location.href = window.location.href.slice(0, -'/auth'.length);
+					} else if (res.status === 401) {
+						showError('Wrong password');
+					} else {
+						showError('Connection error. Please try again.');
+					}
+				} catch (e) {
+					showError('Connection error. Please try again.');
+				} finally {
+					setLoading(false);
+				}
+			}
+
+			function setLoading(isLoading) {
+				loading = isLoading;
+				submitButton.disabled = isLoading;
+
+				if (isLoading) {
+					submitButton.innerHTML = '<span class="loading-spinner"></span>';
+				} else {
+					submitButton.textContent = 'Sign In';
+				}
+			}
+
+			function showError(message) {
+				error = message;
+				errorElement.textContent = message;
+				errorElement.style.display = 'block';
+			}
+
+			function clearError() {
+				error = '';
+				errorElement.textContent = '';
+				errorElement.style.display = 'none';
+			}
+		</script>
+	</body>
 </html>
