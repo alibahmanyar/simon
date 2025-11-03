@@ -9,9 +9,10 @@ mod models;
 
 use alerts::check_alerts;
 use axum::{
-    Router,
+    Json, Router,
     routing::{delete, get, post},
 };
+use collect_info::detect_system_capabilities;
 use db::db_update;
 use endpoints::{
     add_alert, add_notif_method, delete_alert, delete_notif_method, get_alert_vars, get_alerts,
@@ -19,6 +20,7 @@ use endpoints::{
     ws_handler_g, ws_handler_p,
 };
 use log::{debug, error, info};
+use models::ApiResponse;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
@@ -53,6 +55,10 @@ async fn main() {
 
     // Create system instance for the main thread and web API
     let sys = System::new();
+
+    // Detect system capabilities
+    let capabilities = detect_system_capabilities();
+    let shared_capabilities = Arc::new(capabilities);
 
     let shared_sys = Arc::new(Mutex::new(sys));
 
@@ -145,6 +151,13 @@ async fn main() {
         .route("/api/alert_vars", get(get_alert_vars))
         .fallback(get(serve_static))
         .with_state((shared_sys, config.clone()));
+
+    // Add capabilities endpoint with closure that captures capabilities
+    let capabilities_handler = {
+        let caps = shared_capabilities.clone();
+        move || async move { Json(ApiResponse::success((*caps).clone())) }
+    };
+    app = app.route("/api/capabilities", get(capabilities_handler));
 
     if let Some(_) = &config.password_hash {
         app = auth::apply_auth_middleware(app, config.clone());

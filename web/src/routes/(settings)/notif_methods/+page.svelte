@@ -1,12 +1,16 @@
 <script lang="ts">
 	import '$lib/style-settings.css';
 	import type { NotificationMethod } from '$lib/types';
-	import { url } from '$lib/utils';
+	import {
+		getNotificationMethods,
+		saveNotificationMethod,
+		deleteNotificationMethod as deleteNotificationMethodApi
+	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 
 	let is_loading: boolean = $state(true);
-	let notificationMethods: any[] = $state([]);
+	let notificationMethods: NotificationMethod[] = $state([]);
 	let showDialog = $state(false);
 
 	let is_new = $state(true);
@@ -29,27 +33,21 @@
 
 	let headersString = $state('');
 
-	let testResult: HTMLElement | undefined = $state();
-	let bodyTextArea: HTMLDivElement | undefined = $state();
+	let showBodyTextArea = $state(true);
 
 	// Methods
 	const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 	onMount(async () => {
 		is_loading = true;
-		notificationMethods = await fetch(
-			import.meta.env.PROD ? url('api/notif_methods') : 'http://localhost:30000/api/notif_methods'
-		)
-			.then((response) => {
-				if (!response.ok) {
-					console.error('Failed to fetch notification methods:', response.status);
-				}
-				is_loading = false;
-				return response.json();
-			})
-			.catch((error) => {
-				console.error('Error fetching notification methods:', error);
-			});
+		const result = await getNotificationMethods();
+		is_loading = false;
+
+		if (result.success) {
+			notificationMethods = result.data;
+		} else {
+			console.error('Failed to fetch notification methods:', result.error);
+		}
 	});
 
 	function toggleDialog() {
@@ -87,39 +85,31 @@
 		// Create a new notification source with WebHook config
 		const newMethod = webhookForm;
 
-		let addr = import.meta.env.PROD
-			? url('api/notif_methods')
-			: 'http://localhost:30000/api/notif_methods';
-
 		is_loading = true;
-		notificationMethods = await fetch(addr, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(newMethod)
-		})
-			.then(async (response) => {
-				if (!response.ok) {
-					alert(`Failed to add notification method: ${response.status}`);
-				}
-				toggleDialog();
-				is_loading = false;
-				return await response.json();
-			})
-			.catch((error) => {
-				console.error('Error adding notification method:', error);
-				alert(`Failed to add notification method: ${error.message}`);
-			});
+		const result = await saveNotificationMethod(newMethod);
+		is_loading = false;
+
+		if (result.success) {
+			notificationMethods = result.data;
+			toggleDialog();
+		} else {
+			console.error('Error adding notification method:', result.error);
+			alert(`Failed to add notification method: ${result.error}`);
+		}
 	}
 
-	function sendTestNotification() {
-		if (testResult === undefined) return;
+	let testResultMessage = $state('');
+	let testResultStatus: 'idle' | 'loading' | 'success' | 'error' = $state('idle');
 
+	function sendTestNotification() {
 		if (webhookForm.config.WebHook.url.length === 0) {
-			testResult.innerHTML = '<span style="color: #ef4444;">Webhook URL is required</span>';
+			testResultMessage = 'Webhook URL is required';
+			testResultStatus = 'error';
 			return;
 		}
 
-		testResult.innerHTML = 'Sending test notification...';
+		testResultMessage = 'Sending test notification...';
+		testResultStatus = 'loading';
 
 		let url = webhookForm.config.WebHook.url.replaceAll(
 			'{notif_msg}',
@@ -158,37 +148,26 @@
 				return response.text();
 			})
 			.then(() => {
-				if (testResult)
-					testResult.innerHTML =
-						'<span style="color: #4ade80;">Test notification sent successfully</span>';
+				testResultMessage = 'Test notification sent successfully';
+				testResultStatus = 'success';
 			})
 			.catch((error) => {
-				if (testResult)
-					testResult.innerHTML = `<span style="color: #ef4444;">Error: ${error.message}</span>`;
+				testResultMessage = `Error: ${error.message}`;
+				testResultStatus = 'error';
 			});
 	}
 
 	async function deleteNotificationMethod(id: string) {
 		is_loading = true;
-		notificationMethods = await fetch(
-			import.meta.env.PROD
-				? url(`api/notif_methods/${id}`)
-				: `http://localhost:30000/api/notif_methods/${id}`,
-			{
-				method: 'DELETE'
-			}
-		)
-			.then((response) => {
-				if (!response.ok) {
-					alert(`Failed to delete notification method: ${response.status}`);
-				}
-				is_loading = false;
-				return response.json();
-			})
-			.catch((error) => {
-				console.error('Error deleting notification method:', error);
-				alert(`Failed to delete notification method: ${error.message}`);
-			});
+		const result = await deleteNotificationMethodApi(id);
+		is_loading = false;
+
+		if (result.success) {
+			notificationMethods = result.data;
+		} else {
+			console.error('Error deleting notification method:', result.error);
+			alert(`Failed to delete notification method: ${result.error}`);
+		}
 	}
 </script>
 
@@ -298,14 +277,12 @@
 								id="method"
 								bind:value={webhookForm.config.WebHook.method}
 								onchange={() => {
-									if (!['POST', 'PUT', 'PATCH'].includes(webhookForm.config.WebHook.method)) {
-										if (bodyTextArea) bodyTextArea.style.display = 'none';
-									} else {
-										if (bodyTextArea) bodyTextArea.style.display = 'block';
-									}
+									showBodyTextArea = ['POST', 'PUT', 'PATCH'].includes(
+										webhookForm.config.WebHook.method
+									);
 								}}
 							>
-								{#each methods as method}
+								{#each methods as method (method)}
 									<option value={method}>{method}</option>
 								{/each}
 							</select>
@@ -320,14 +297,16 @@
 							></textarea>
 						</div>
 
-						<div class="form-group" bind:this={bodyTextArea}>
-							<label for="body">Request Body</label>
-							<textarea
-								id="body"
-								bind:value={webhookForm.config.WebHook.body}
-								placeholder="message=&lcub;notif_msg&rcub;"
-							></textarea>
-						</div>
+						{#if showBodyTextArea}
+							<div class="form-group">
+								<label for="body">Request Body</label>
+								<textarea
+									id="body"
+									bind:value={webhookForm.config.WebHook.body}
+									placeholder="message=&lcub;notif_msg&rcub;"
+								></textarea>
+							</div>
+						{/if}
 
 						<div class="dialog-actions">
 							<div
@@ -348,7 +327,16 @@
 									>
 									Test
 								</button>
-								<span bind:this={testResult} class="hint" style="font-size: 0.8rem;"></span>
+								<span
+									class="hint"
+									style="font-size: 0.8rem; color: {testResultStatus === 'error'
+										? '#ef4444'
+										: testResultStatus === 'success'
+											? '#4ade80'
+											: 'inherit'};"
+								>
+									{testResultMessage}
+								</span>
 							</div>
 							<div
 								style="display: flex; justify-content: end; align-items: center; flex-direction: row; gap:0.5rem;"

@@ -4,8 +4,157 @@ use bollard::{
     container::{ListContainersOptions, StatsOptions},
 };
 use futures::StreamExt;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use sysinfo::{Disks, Networks, System};
+
+pub fn detect_system_capabilities() -> SystemCapabilities {
+    info!("Detecting system capabilities");
+
+    let mut capabilities = SystemCapabilities {
+        cpu: false,
+        memory: false,
+        swap: false,
+        load_average: false,
+        network: false,
+        disk: false,
+        processes: false,
+        docker: false,
+    };
+
+    // Test CPU detection
+    let sys = System::new_all();
+    if !sys.cpus().is_empty() {
+        capabilities.cpu = true;
+        debug!("CPU detection: available ({} cores)", sys.cpus().len());
+    } else {
+        debug!("CPU detection: unavailable");
+    }
+
+    // Test Memory detection
+    if sys.total_memory() > 0 {
+        capabilities.memory = true;
+        debug!("Memory detection: available");
+    } else {
+        debug!("Memory detection: unavailable");
+    }
+
+    // Test Swap detection
+    if sys.total_swap() > 0 {
+        capabilities.swap = true;
+        debug!("Swap detection: available");
+    } else {
+        debug!("Swap detection: unavailable");
+    }
+
+    // Test Load Average detection
+    let load_avg = System::load_average();
+    if load_avg.one > 0.0 || load_avg.five > 0.0 || load_avg.fifteen > 0.0 {
+        capabilities.load_average = true;
+        debug!("Load average detection: available");
+    } else {
+        debug!("Load average detection: unavailable");
+    }
+
+    // Test Network detection
+    let networks = Networks::new_with_refreshed_list();
+    if !networks.is_empty() {
+        capabilities.network = true;
+        debug!(
+            "Network detection: available ({} interfaces)",
+            networks.len()
+        );
+    } else {
+        debug!("Network detection: unavailable");
+    }
+
+    // Test Disk detection
+    let disks = Disks::new_with_refreshed_list();
+    let valid_disks: Vec<_> = disks
+        .iter()
+        .filter(|disk| {
+            let fs = disk.file_system().to_str().unwrap_or_default();
+            let mount_point = disk.mount_point().to_str().unwrap_or_default();
+            if fs.is_empty()
+                || mount_point.starts_with("/sys")
+                || mount_point.starts_with("/proc")
+                || mount_point.starts_with("/etc")
+            {
+                return false;
+            }
+            matches!(
+                fs.to_lowercase().as_str(),
+                "ext2"
+                    | "ext3"
+                    | "ext4"
+                    | "btrfs"
+                    | "xfs"
+                    | "zfs"
+                    | "ntfs"
+                    | "fat"
+                    | "fat32"
+                    | "exfat"
+                    | "hfs"
+                    | "hfs+"
+                    | "apfs"
+                    | "jfs"
+                    | "reiserfs"
+                    | "ufs"
+                    | "f2fs"
+                    | "nilfs2"
+                    | "hpfs"
+                    | "minix"
+                    | "qnx4"
+                    | "ocfs2"
+                    | "udf"
+                    | "vfat"
+                    | "msdos"
+            )
+        })
+        .collect();
+
+    if !valid_disks.is_empty() {
+        capabilities.disk = true;
+        debug!("Disk detection: available ({} disks)", valid_disks.len());
+    } else {
+        debug!("Disk detection: unavailable");
+    }
+
+    // Test Process detection
+    if !sys.processes().is_empty() {
+        capabilities.processes = true;
+        debug!(
+            "Process detection: available ({} processes)",
+            sys.processes().len()
+        );
+    } else {
+        debug!("Process detection: unavailable");
+    }
+
+    // Test Docker detection (synchronous check)
+    match Docker::connect_with_local_defaults() {
+        Ok(_) => {
+            capabilities.docker = true;
+            debug!("Docker detection: available");
+        }
+        Err(e) => {
+            debug!("Docker detection: unavailable ({})", e);
+        }
+    }
+
+    info!(
+        "System capabilities detected: CPU={}, Memory={}, Swap={}, LoadAvg={}, Network={}, Disk={}, Processes={}, Docker={}",
+        capabilities.cpu,
+        capabilities.memory,
+        capabilities.swap,
+        capabilities.load_average,
+        capabilities.network,
+        capabilities.disk,
+        capabilities.processes,
+        capabilities.docker
+    );
+
+    capabilities
+}
 
 pub fn collect_general_info(sys: &System) -> GeneralInfo {
     debug!("Collecting general system information");
@@ -308,6 +457,36 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_detect_system_capabilities() {
+        use std::time::Instant;
+        let now = Instant::now();
+
+        let capabilities = detect_system_capabilities();
+
+        println!("Elapsed: {:.2?}", now.elapsed());
+        println!("System Capabilities:");
+        println!("  CPU: {}", capabilities.cpu);
+        println!("  Memory: {}", capabilities.memory);
+        println!("  Swap: {}", capabilities.swap);
+        println!("  Load Average: {}", capabilities.load_average);
+        println!("  Network: {}", capabilities.network);
+        println!("  Disk: {}", capabilities.disk);
+        println!("  Processes: {}", capabilities.processes);
+        println!("  Docker: {}", capabilities.docker);
+        println!("\nJSON: {}", serde_json::json!(capabilities));
+
+        // Basic sanity checks - most systems should have these
+        assert!(
+            capabilities.cpu,
+            "CPU detection should work on most systems"
+        );
+        assert!(
+            capabilities.memory,
+            "Memory detection should work on most systems"
+        );
+    }
 
     #[tokio::test]
     async fn gather_data() {

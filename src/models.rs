@@ -1,6 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemCapabilities {
+    pub cpu: bool,
+    pub memory: bool,
+    pub swap: bool,
+    pub load_average: bool,
+    pub network: bool,
+    pub disk: bool,
+    pub processes: bool,
+    pub docker: bool,
+}
+
 pub const ALERT_VARIABLES: [(&str, &str); 11] = [
     ("sys", "cpu_usage"),
     ("sys", "mem_usage"),
@@ -20,6 +32,24 @@ pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
     pub error: Option<String>,
+}
+
+impl<T> ApiResponse<T> {
+    pub fn success(data: T) -> Self {
+        ApiResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    pub fn error(error: String) -> Self {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(error),
+        }
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -192,6 +222,7 @@ pub struct WebHookNotif {
     pub body: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EmailNotif {
     pub server: String,

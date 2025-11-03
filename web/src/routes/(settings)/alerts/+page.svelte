@@ -1,13 +1,13 @@
 <script lang="ts">
 	import '$lib/style-settings.css';
+	import { cat2names, formatBytes, formatBytesPerSecond, types2names, var2unit } from '$lib/utils';
 	import {
-		cat2names,
-		formatBytes,
-		formatBytesPerSecond,
-		types2names,
-		url,
-		var2unit
-	} from '$lib/utils';
+		getAlerts,
+		getAlertVars,
+		getNotificationMethods,
+		saveAlert,
+		deleteAlert as deleteAlertApi
+	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import type { Alert, AlertVar, NotificationMethod } from '$lib/types';
@@ -48,30 +48,32 @@
 		is_loading = true;
 		try {
 			// Fetch all data in parallel
-			const [alertsResponse, alertVarsResponse, notifMethodsResponse] = await Promise.all([
-				fetch(import.meta.env.PROD ? url('api/alerts') : 'http://localhost:30000/api/alerts'),
-				fetch(
-					import.meta.env.PROD ? url('api/alert_vars') : 'http://localhost:30000/api/alert_vars'
-				),
-				fetch(
-					import.meta.env.PROD
-						? url('api/notif_methods')
-						: 'http://localhost:30000/api/notif_methods'
-				)
+			const [alertsResult, alertVarsResult, notifMethodsResult] = await Promise.all([
+				getAlerts(),
+				getAlertVars(),
+				getNotificationMethods()
 			]);
 
-			// Check responses and parse JSON
-			if (!alertsResponse.ok) console.error('Failed to fetch alerts:', alertsResponse.status);
-			if (!alertVarsResponse.ok)
-				console.error('Failed to fetch alert vars:', alertVarsResponse.status);
-			if (!notifMethodsResponse.ok)
-				console.error('Failed to fetch notification methods:', notifMethodsResponse.status);
+			// Handle alerts
+			if (alertsResult.success) {
+				alerts = alertsResult.data;
+			} else {
+				console.error('Failed to fetch alerts:', alertsResult.error);
+			}
 
-			[alerts, alertVars, notifMethods] = await Promise.all([
-				alertsResponse.json(),
-				alertVarsResponse.json(),
-				notifMethodsResponse.json()
-			]);
+			// Handle alert vars
+			if (alertVarsResult.success) {
+				alertVars = alertVarsResult.data;
+			} else {
+				console.error('Failed to fetch alert vars:', alertVarsResult.error);
+			}
+
+			// Handle notification methods
+			if (notifMethodsResult.success) {
+				notifMethods = notifMethodsResult.data;
+			} else {
+				console.error('Failed to fetch notification methods:', notifMethodsResult.error);
+			}
 		} catch (error) {
 			console.error('Error fetching data:', error);
 		} finally {
@@ -113,38 +115,26 @@
 		alertForm.var.var = selectedProperty;
 
 		is_loading = true;
-		const response = await fetch(
-			import.meta.env.PROD ? url('api/alerts') : 'http://localhost:30000/api/alerts',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(alertForm)
-			}
-		);
-		if (response.ok) {
-			alerts = await response.json();
-			is_loading = false;
+		const result = await saveAlert(alertForm);
+		is_loading = false;
+
+		if (result.success) {
+			alerts = result.data;
 			toggleDialog();
 		} else {
-			console.error('Failed to add alert:', response.status);
+			console.error('Failed to add alert:', result.error);
 		}
 	}
 
-	async function deleteAlert(id: string) {
+	async function deleteAlertHandler(id: string) {
 		is_loading = true;
-		const response = await fetch(
-			import.meta.env.PROD ? url(`api/alerts/${id}`) : `http://localhost:30000/api/alerts/${id}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const result = await deleteAlertApi(id);
 		is_loading = false;
-		if (response.ok) {
-			alerts = await response.json();
+
+		if (result.success) {
+			alerts = result.data;
 		} else {
-			console.error('Failed to delete alert:', response.status);
+			console.error('Failed to delete alert:', result.error);
 		}
 	}
 </script>
@@ -204,7 +194,7 @@
 							<button
 								class="action-btn delete"
 								onclick={() => {
-									deleteAlert(alert.id);
+									deleteAlertHandler(alert.id);
 								}}
 							>
 								Delete
@@ -254,7 +244,7 @@
 							<div class="form-group">
 								<label for="notifs">notification method</label>
 								<select id="notifs" bind:value={selectedNotifMethod} required>
-									{#each notifMethods as method}
+									{#each notifMethods as method (method.id)}
 										<option value={method.id}>{method.name}</option>
 									{/each}
 								</select>
@@ -274,7 +264,7 @@
 							<div class="form-group">
 								<label for="category">Category</label>
 								<select id="category" bind:value={selectedCategory} required>
-									{#each new Set(alertVars.map((v) => v.cat)) as cat}
+									{#each new Set(alertVars.map((v) => v.cat)) as cat (cat)}
 										<option value={cat}>{cat2names[cat]}</option>
 									{/each}
 								</select>
@@ -286,7 +276,7 @@
 									<select id="category" bind:value={selectedResource} required>
 										{#each Array.from(new Set(alertVars
 													.filter((v) => v.cat === selectedCategory)
-													.map((v) => v.resrc))) as resrc}
+													.map((v) => v.resrc))) as resrc (resrc)}
 											<option value={resrc}>{resrc}</option>
 										{/each}
 									</select>
@@ -297,7 +287,7 @@
 									<select id="category" bind:value={selectedProperty} required>
 										{#each Array.from(alertVars
 												.filter((v) => v.cat === selectedCategory)
-												.filter((v) => v.resrc === selectedResource)) as alertVar}
+												.filter((v) => v.resrc === selectedResource)) as alertVar (alertVar.var)}
 											<option value={alertVar.var}>{types2names[alertVar.var]}</option>
 										{/each}
 									</select>
@@ -306,7 +296,7 @@
 								<div class="form-group">
 									<label for="category">Property</label>
 									<select id="category" bind:value={selectedProperty} required>
-										{#each Array.from(alertVars.filter((v) => v.cat === selectedCategory)) as alertVar}
+										{#each Array.from(alertVars.filter((v) => v.cat === selectedCategory)) as alertVar (alertVar.var)}
 											<option value={alertVar.var}>{types2names[alertVar.var]}</option>
 										{/each}
 									</select>

@@ -1,3 +1,35 @@
+export interface ApiResponse<T> {
+	success: boolean;
+	data: T | null;
+	error: string | null;
+}
+
+export interface SystemCapabilities {
+	cpu: boolean;
+	memory: boolean;
+	swap: boolean;
+	load_average: boolean;
+	network: boolean;
+	disk: boolean;
+	processes: boolean;
+	docker: boolean;
+}
+
+export interface HistoricalQueryOptions {
+	resolution: 'second' | 'minute' | 'hour' | 'day';
+	start_time?: number;
+	end_time?: number;
+	limit?: number;
+}
+
+export interface HistoricalSeries {
+	cat: string;
+	stype: string;
+	name: string;
+	timestamps: number[];
+	values: number[];
+}
+
 export enum wsStatus {
 	INIT = 0,
 	WAITING = 1,

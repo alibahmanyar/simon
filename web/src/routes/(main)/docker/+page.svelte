@@ -2,8 +2,9 @@
 	import '$lib/style-docker.css';
 	import { formatBytes } from '$lib/utils';
 	import { ddata } from '$lib/docker_socket.svelte';
-	import { fade } from 'svelte/transition';
+
 	import { wsStatus } from '$lib/types';
+	import { getContainerLogs } from '$lib/api';
 	// $inspect(ddata).with(console.trace);
 
 	// Create state for container filtering and search
@@ -54,21 +55,14 @@
 	// Function to fetch container logs
 	async function fetchContainerLogs(containerId: string) {
 		isLoadingLogs = true;
-		try {
-			const addr = import.meta.env.PROD
-				? `container_logs/${containerId}`
-				: `http://localhost:30000/container_logs/${containerId}`;
-			const response = await fetch(addr);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch logs: ${response.status}`);
-			}
-			const data = await response.text();
-			return data.split('\n').filter((line) => line.trim() !== '');
-		} catch (error) {
-			console.error('Error fetching container logs:', error);
+		const result = await getContainerLogs(containerId);
+		isLoadingLogs = false;
+
+		if (result.success) {
+			return result.data;
+		} else {
+			console.error('Error fetching container logs:', result.error);
 			return ['Failed to load logs. Please try again.'];
-		} finally {
-			isLoadingLogs = false;
 		}
 	}
 

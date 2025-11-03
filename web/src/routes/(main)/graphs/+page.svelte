@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { createChart, AreaSeries, ColorType } from 'lightweight-charts';
 	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils';
+	import { getHistoricalData } from '$lib/api';
+	import type { HistoricalSeries } from '$lib/types';
 	let resolution = $state('minute');
 	let timespan = $state(3600);
 	let showAll = $state(false); // Add state for showing less important charts
@@ -35,14 +37,6 @@
 		} else {
 			return timespanOptions;
 		}
-	}
-
-	interface HistoricalSeries {
-		cat: string;
-		stype: string;
-		name: string;
-		timestamps: number[];
-		values: number[];
 	}
 
 	function isNegligible(series: HistoricalSeries): boolean {
@@ -139,17 +133,16 @@
 
 		try {
 			const start_time = Math.floor(Date.now() / 1000 - timespan);
-			const addr = import.meta.env.PROD
-				? `/api/historical?resolution=${resolution}&start_time=${start_time}`
-				: `http://localhost:30000/api/historical?resolution=${resolution}&start_time=${start_time}`;
+			const result = await getHistoricalData({
+				resolution: resolution as 'second' | 'minute' | 'hour' | 'day',
+				start_time
+			});
 
-			const response = await fetch(addr);
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! Status: ${response.status}`);
+			if (!result.success) {
+				throw new Error(result.error);
 			}
 
-			const data = await response.json();
+			const data = result.data;
 
 			// Filter out less important series if showAll is false
 			let filteredData = data;
@@ -289,7 +282,7 @@
 		<div class="control-group">
 			<label for="resolution">Resolution:</label>
 			<select id="resolution" bind:value={resolution} onchange={refreshCharts}>
-				{#each resolutionOptions as option}
+				{#each resolutionOptions as option (option.value)}
 					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
@@ -298,7 +291,7 @@
 		<div class="control-group">
 			<label for="timespan">Timespan:</label>
 			<select id="timespan" bind:value={timespan} onchange={refreshCharts}>
-				{#each getAvailableTimespanOptions() as option}
+				{#each getAvailableTimespanOptions() as option (option.value)}
 					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
@@ -330,7 +323,7 @@
 			<p>Try adjusting your filters.</p>
 		</div>
 	{:else}
-		{#each seriesData as series, i}
+		{#each seriesData as series, i (series.name + series.stype)}
 			<div class="chart-container">
 				<h2>{formatName(series.name, series.stype)}</h2>
 				<div class="chart" bind:this={chartContainers[i]}></div>

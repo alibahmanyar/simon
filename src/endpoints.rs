@@ -1,7 +1,7 @@
 use crate::collect_info;
 use crate::config::Config;
 use crate::db::Database;
-use crate::models::{self, NotificationMethod};
+use crate::models::{self, ApiResponse, NotificationMethod};
 use axum::Json;
 use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
@@ -252,17 +252,17 @@ pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoRe
 pub async fn historical_data(
     Query(params): Query<HistoricalQueryOptions>,
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     debug!("Historical data requested: {:?}", params);
     // Open database connection
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
+            return Json(ApiResponse::<Vec<models::HistoricalSeries>>::error(
                 format!("Failed to open database: {}", e),
-            ));
+            ))
+            .into_response();
         }
     };
 
@@ -270,14 +270,14 @@ pub async fn historical_data(
     match db.query_historical_data(&params) {
         Ok(data) => {
             debug!("Historical data query successful: {} records", data.len());
-            Ok(Json(data))
+            Json(ApiResponse::success(data)).into_response()
         }
         Err(e) => {
             error!("Failed to query database: {}", e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<Vec<models::HistoricalSeries>>::error(
                 format!("Failed to query database: {}", e),
             ))
+            .into_response()
         }
     }
 }
@@ -292,7 +292,10 @@ pub async fn add_notif_method(
             error!("Invalid notification method JSON payload: {}", err);
             return (
                 StatusCode::BAD_REQUEST,
-                format!("Invalid JSON payload: {}", err),
+                Json(ApiResponse::<()>::error(format!(
+                    "Invalid JSON payload: {}",
+                    err
+                ))),
             )
                 .into_response();
         }
@@ -307,14 +310,17 @@ pub async fn add_notif_method(
             error!("Failed to open database: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to open database: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
     };
 
     let mut methods: Vec<NotificationMethod> =
-        match db.get_kv_str("notification_sources").unwrap_or_default() {
+        match db.get_kv_str("notification_methods").unwrap_or_default() {
             Some(methods) => serde_json::from_str(&methods).unwrap(),
             None => Vec::new(),
         };
@@ -341,19 +347,20 @@ pub async fn add_notif_method(
     )
     .unwrap();
 
-    (StatusCode::CREATED, Json(methods)).into_response()
+    (StatusCode::CREATED, Json(ApiResponse::success(methods))).into_response()
 }
 
 pub async fn get_notif_methods(
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<NotificationMethod>>::error(format!(
+                "Failed to open database: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
@@ -363,20 +370,21 @@ pub async fn get_notif_methods(
             None => Vec::new(),
         };
 
-    Ok(Json(methods))
+    Json(ApiResponse::success(methods)).into_response()
 }
 
 pub async fn delete_notif_method(
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
     Path(id): Path<String>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<NotificationMethod>>::error(format!(
+                "Failed to open database: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
@@ -394,7 +402,7 @@ pub async fn delete_notif_method(
     )
     .unwrap();
 
-    Ok(Json(methods))
+    Json(ApiResponse::success(methods)).into_response()
 }
 
 pub async fn add_alert(
@@ -407,7 +415,10 @@ pub async fn add_alert(
             error!("Invalid alert JSON payload: {}", err);
             return (
                 StatusCode::BAD_REQUEST,
-                format!("Invalid JSON payload: {}", err),
+                Json(ApiResponse::<()>::error(format!(
+                    "Invalid JSON payload: {}",
+                    err
+                ))),
             )
                 .into_response();
         }
@@ -423,7 +434,10 @@ pub async fn add_alert(
             error!("Failed to open database: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to open database: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -450,19 +464,20 @@ pub async fn add_alert(
     )
     .unwrap();
 
-    (StatusCode::CREATED, Json(alerts)).into_response()
+    (StatusCode::CREATED, Json(ApiResponse::success(alerts))).into_response()
 }
 
 pub async fn get_alerts(
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<models::Alert>>::error(format!(
+                "Failed to open database: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
@@ -471,23 +486,24 @@ pub async fn get_alerts(
         None => Vec::new(),
     };
 
-    Ok(Json(alerts))
+    Json(ApiResponse::success(alerts)).into_response()
 }
 
 pub async fn delete_alert(
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
     Path(id): Path<String>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     info!("Deleting alert with ID: {}", id);
 
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<models::Alert>>::error(format!(
+                "Failed to open database: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
@@ -504,31 +520,33 @@ pub async fn delete_alert(
     )
     .unwrap();
 
-    Ok(Json(alerts))
+    Json(ApiResponse::success(alerts)).into_response()
 }
 
 pub async fn get_alert_vars(
     State((_, config)): State<(Arc<Mutex<System>>, Config)>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to open database: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<models::AlertVar>>::error(format!(
+                "Failed to open database: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
     let vars: Vec<models::AlertVar> = match db.get_resource_list() {
         Ok(vars) => vars,
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get resource list: {}", e),
-            ));
+            return Json(ApiResponse::<Vec<models::AlertVar>>::error(format!(
+                "Failed to get resource list: {}",
+                e
+            )))
+            .into_response();
         }
     };
 
-    Ok(Json(vars))
+    Json(ApiResponse::success(vars)).into_response()
 }
