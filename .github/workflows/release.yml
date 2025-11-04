@@ -44,7 +44,7 @@ jobs:
     - uses: Swatinem/rust-cache@v2
   
     - name: Run make build
-      run: make web-setup && make install-cross && make web && make all-targets
+      run: make web-setup && make install-cross && make web && make build-gh-release
     
     - name: Compress binaries
       uses: svenstaro/upx-action@v2
