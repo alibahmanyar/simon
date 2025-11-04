@@ -2,7 +2,7 @@
 PROJECT_NAME := simon
 CARGO := cargo
 CROSS := cross
-RELEASE_DIR := target/github-release
+RELEASE_DIR := target/artifacts
 
 # Default target is the native build
 .PHONY: all
@@ -38,61 +38,73 @@ install: release
 # Linux targets
 .PHONY: linux-x86_64
 linux-x86_64:
+	@echo "Building for linux-x86_64..."
 	$(CROSS) build --release --target x86_64-unknown-linux-gnu
 
 .PHONY: linux-aarch64
 linux-aarch64:
+	@echo "Building for linux-aarch64..."
 	$(CROSS) build --release --target aarch64-unknown-linux-gnu
 
 .PHONY: linux-armv7
 linux-armv7:
+	@echo "Building for linux-armv7..."
 	$(CROSS) build --release --target armv7-unknown-linux-gnueabihf
 
 .PHONY: linux-i686
 linux-i686:
+	@echo "Building for linux-i686..."
 	$(CROSS) build --release --target i686-unknown-linux-gnu
 
 .PHONY: linux-aarch64-musl
 linux-aarch64-musl:
-	$(CROSS) build --release --target aarch64-unknown-linux-musl 
+	@echo "Building for linux-aarch64-musl..."
+	$(CROSS) build --release --target aarch64-unknown-linux-musl
 
 .PHONY: linux-armv7-musl
 linux-armv7-musl:
+	@echo "Building for linux-armv7-musl..."
 	$(CROSS) build --release --target armv7-unknown-linux-musleabihf
 
 .PHONY: linux-x86_64-musl
 linux-x86_64-musl:
+	@echo "Building for linux-x86_64-musl..."
 	$(CROSS) build --release --target x86_64-unknown-linux-musl
 
 .PHONY: linux-i686-musl
 linux-i686-musl:
+	@echo "Building for linux-i686-musl..."
 	$(CROSS) build --release --target i686-unknown-linux-musl
 
 .PHONY: android-aarch64
 android-aarch64:
+	@echo "Building for android-aarch64..."
 	$(CROSS) build --release --target aarch64-linux-android
 
 .PHONY: android-armv7
 android-armv7:
+	@echo "Building for android-armv7..."
 	$(CROSS) build --release --target armv7-linux-androideabi
 
 .PHONY: android-x86_64
 android-x86_64:
+	@echo "Building for android-x86_64..."
 	$(CROSS) build --release --target x86_64-linux-android
 
 .PHONY: windows-x86_64
 windows-x86_64:
+	@echo "Building for windows-x86_64..."
 	$(CROSS) build --release --target x86_64-pc-windows-gnu
 
 .PHONY: freebsd-x86_64
 freebsd-x86_64:
+	@echo "Building for freebsd-x86_64..."
 	$(CROSS) build --release --target x86_64-unknown-freebsd
 
 
 # Build all supported targets
 .PHONY: all-targets
 all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl android-aarch64 android-armv7 android-x86_64 windows-x86_64 freebsd-x86_64
-	@echo "Creating release directory for GitHub artifacts..."
 	mkdir -p $(RELEASE_DIR)
 	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
 	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
@@ -107,6 +119,67 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
 	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
 	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
+
+# Build GitHub release artifacts in Github Actions / Prune images to avoid disk space issues
+.PHONY: build-gh-release
+build-gh-release:
+	@echo "Building all targets for GitHub release..."
+	$(MAKE) linux-x86_64
+	docker system prune -f
+	@echo "Completed linux-x86_64 - 1/13"
+	$(MAKE) linux-aarch64
+	docker system prune -f
+	@echo "Completed linux-aarch64 - 2/13"
+	$(MAKE) linux-armv7
+	docker system prune -f
+	@echo "Completed linux-armv7 - 3/13"
+	$(MAKE) linux-i686
+	docker system prune -f
+	@echo "Completed linux-i686 - 4/13"
+	$(MAKE) linux-aarch64-musl
+	docker system prune -f
+	@echo "Completed linux-aarch64-musl - 5/13"
+	$(MAKE) linux-armv7-musl
+	docker system prune -f
+	@echo "Completed linux-armv7-musl - 6/13"
+	$(MAKE) linux-x86_64-musl
+	docker system prune -f
+	@echo "Completed linux-x86_64-musl - 7/13"
+	$(MAKE) linux-i686-musl
+	docker system prune -f
+	@echo "Completed linux-i686-musl - 8/13"
+	$(MAKE) android-aarch64
+	docker system prune -f
+	@echo "Completed android-aarch64 - 9/13"
+	$(MAKE) android-armv7
+	docker system prune -f
+	@echo "Completed android-armv7 - 10/13"
+	$(MAKE) android-x86_64
+	docker system prune -f
+	@echo "Completed android-x86_64 - 11/13"
+	$(MAKE) windows-x86_64
+	docker system prune -f
+	@echo "Completed windows-x86_64 - 12/13"
+	$(MAKE) freebsd-x86_64
+	docker system prune -f
+	@echo "Completed freebsd-x86_64 - 13/13"
+
+	mkdir -p $(RELEASE_DIR)
+	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
+	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
+	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
+	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
+	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
+	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
+	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
+	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
+	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
+	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
+	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
+	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
+	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
+
+	@echo "Finished creating GitHub release artifacts in $(RELEASE_DIR)"
 
 # Install cross-compilation toolchains
 .PHONY: install-cross
