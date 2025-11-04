@@ -172,8 +172,8 @@ build-gh-release:
 	docker system prune -af
 	@echo "Completed android-aarch64 - 9/13"
 	$(MAKE) android-armv7
-	cp target/armv7-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
-	rm -rf target/armv7-linux-android
+	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
+	rm -rf target/armv7-linux-androideabi
 	docker system prune -af
 	@echo "Completed android-armv7 - 10/13"
 	$(MAKE) android-x86_64
