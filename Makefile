@@ -125,43 +125,43 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 build-gh-release:
 	@echo "Building all targets for GitHub release..."
 	$(MAKE) linux-x86_64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-x86_64 - 1/13"
 	$(MAKE) linux-aarch64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-aarch64 - 2/13"
 	$(MAKE) linux-armv7
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-armv7 - 3/13"
 	$(MAKE) linux-i686
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-i686 - 4/13"
 	$(MAKE) linux-aarch64-musl
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-aarch64-musl - 5/13"
 	$(MAKE) linux-armv7-musl
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-armv7-musl - 6/13"
 	$(MAKE) linux-x86_64-musl
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-x86_64-musl - 7/13"
 	$(MAKE) linux-i686-musl
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed linux-i686-musl - 8/13"
 	$(MAKE) android-aarch64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed android-aarch64 - 9/13"
 	$(MAKE) android-armv7
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed android-armv7 - 10/13"
 	$(MAKE) android-x86_64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed android-x86_64 - 11/13"
 	$(MAKE) windows-x86_64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed windows-x86_64 - 12/13"
 	$(MAKE) freebsd-x86_64
-	docker system prune -f
+	docker system prune -af
 	@echo "Completed freebsd-x86_64 - 13/13"
 
 	mkdir -p $(RELEASE_DIR)
