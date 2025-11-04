@@ -45,14 +45,6 @@ jobs:
   
     - name: Run make build
       run: make web-setup && make install-cross && make web && make build-gh-release
-    
-    - name: Compress binaries
-      uses: svenstaro/upx-action@v2
-      with:
-        args: --best
-        strip: false
-        files: |
-          bin-releases/*
       
     - name: Upload all compiled artifacts
       uses: actions/upload-artifact@v4
