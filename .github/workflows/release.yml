@@ -50,6 +50,7 @@ jobs:
       uses: svenstaro/upx-action@v2
       with:
         args: --best
+        strip: false
         files: |
           bin-releases/*
       
