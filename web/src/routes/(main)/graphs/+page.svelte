@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { createChart, AreaSeries, ColorType } from 'lightweight-charts';
-	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils';
+	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils.svelte';
 	import { getHistoricalData } from '$lib/api';
 	import type { HistoricalSeries } from '$lib/types';
 	let resolution = $state('minute');

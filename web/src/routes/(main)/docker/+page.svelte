@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '$lib/style-docker.css';
-	import { formatBytes } from '$lib/utils';
+	import { formatBytes } from '$lib/utils.svelte';
 	import { ddata } from '$lib/docker_socket.svelte';
 
 	import { wsStatus } from '$lib/types';

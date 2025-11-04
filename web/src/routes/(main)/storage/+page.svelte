@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatUptime, formatBytes } from '$lib/utils';
+	import { formatUptime, formatBytes } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
 	import Chart from '$lib/Chart.svelte';
 	import type { Disk } from '$lib/types';

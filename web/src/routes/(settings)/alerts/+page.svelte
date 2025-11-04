@@ -1,6 +1,12 @@
 <script lang="ts">
 	import '$lib/style-settings.css';
-	import { cat2names, formatBytes, formatBytesPerSecond, types2names, var2unit } from '$lib/utils';
+	import {
+		cat2names,
+		formatBytes,
+		formatBytesPerSecond,
+		types2names,
+		var2unit
+	} from '$lib/utils.svelte';
 	import {
 		getAlerts,
 		getAlertVars,

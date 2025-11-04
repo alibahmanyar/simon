@@ -13,8 +13,10 @@
 	} from '$lib/docker_socket.svelte';
 	import { wsStatus } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
+	import { capabilities, updateCapabilities } from '$lib/utils.svelte';
 
 	onMount(() => {
+		updateCapabilities();
 		setTimeout(general_ws_open, 2);
 		setTimeout(docker_ws_open, 2);
 
@@ -35,14 +37,22 @@
 	{#if gdata.status === wsStatus.CONNECTED}
 		<nav class="tabs">
 			<a class="tab" class:active={page.url.pathname === '/'} href="/">Overview</a>
-			<a class="tab" class:active={page.url.pathname === '/storage'} href="storage">Storage</a>
-			<a class="tab" class:active={page.url.pathname === '/network'} href="network">Network</a>
+			{#if capabilities?.disk}
+				<a class="tab" class:active={page.url.pathname === '/storage'} href="storage">Storage</a>
+			{/if}
+			{#if capabilities?.network}
+				<a class="tab" class:active={page.url.pathname === '/network'} href="network">Network</a>
+			{/if}
 			<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
-			<a class="tab" class:active={page.url.pathname === '/docker'} href="docker">Docker</a>
+			{#if capabilities?.docker}
+				<a class="tab" class:active={page.url.pathname === '/docker'} href="docker">Docker</a>
+			{/if}
 			<a class="tab" class:active={page.url.pathname === '/graphs'} href="graphs"
 				>Historical Charts</a
 			>
-			<a class="tab" class:active={page.url.pathname === '/files'} href="/files">Files</a>
+			{#if capabilities?.file_serving}
+				<a class="tab" class:active={page.url.pathname === '/files'} href="/files">Files</a>
+			{/if}
 			<a
 				class="tab home-button"
 				href="/notif_methods"

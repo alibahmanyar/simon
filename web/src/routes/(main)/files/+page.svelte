@@ -12,6 +12,7 @@
 		audioExtensions,
 		imageExtensions
 	} from '$lib/fileExtensions';
+	import { formatBytes } from '$lib/utils.svelte';
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/atom-one-dark.css';
 
@@ -118,13 +119,6 @@
 			const parentPath = currentPath.split('/').slice(0, -1).join('/');
 			browseDir(parentPath);
 		}
-	}
-
-	function formatSize(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(1024));
-		return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${units[i]}`;
 	}
 
 	function formatDate(timestamp: number): string {
@@ -392,7 +386,7 @@
 									</span>
 									<span class="file-name">{entry.name}</span>
 									<span class="file-permissions">{entry.permissions}</span>
-									<span class="file-size">{entry.is_dir ? '-' : formatSize(entry.size)}</span>
+									<span class="file-size">{entry.is_dir ? '-' : formatBytes(entry.size)}</span>
 									<span class="file-modified">{formatDate(entry.modified)}</span>
 									<span class="file-created">{formatDate(entry.created)}</span>
 									<span class="file-actions"></span>

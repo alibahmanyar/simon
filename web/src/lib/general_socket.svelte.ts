@@ -1,4 +1,4 @@
-import { ws_url } from './utils';
+import { ws_url } from './utils.svelte';
 import { wsStatus, type SystemData } from './types';
 
 export const gdata = $state({

@@ -1,5 +1,5 @@
 // place files you want to import through the `$lib` alias in this folder.
-import { ws_url } from './utils';
+import { ws_url } from './utils.svelte';
 import { wsStatus, type DockerInfo } from './types';
 
 export const ddata = $state({

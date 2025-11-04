@@ -1,4 +1,26 @@
 import { page } from '$app/state';
+import type { SystemCapabilities } from './types';
+import { getSystemCapabilities } from './api';
+
+export const capabilities = $state<SystemCapabilities>({
+	cpu: false,
+	memory: false,
+	swap: false,
+	disk: false,
+	network: false,
+	load_average: false,
+	processes: false,
+	docker: false,
+	file_serving: false
+});
+
+export function updateCapabilities() {
+	getSystemCapabilities().then((data) => {
+		if (data.success) {
+			Object.assign(capabilities, data.data);
+		}
+	});
+}
 
 export const types2names: { [key: string]: string } = {
 	cpu_usage: 'CPU Usage',
@@ -59,7 +81,7 @@ export function formatBytes(bytes: number, decimals: number = 1) {
 
 	const k = 1024;
 	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+	const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
 
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 
@@ -86,7 +108,7 @@ export function formatBytesPerSecond(bytesPerSecond: number, decimals: number = 
 
 	const k = 1024;
 	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
+	const sizes = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'];
 
 	const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
 

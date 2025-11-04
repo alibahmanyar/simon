@@ -1,4 +1,4 @@
-import { url } from './utils';
+import { url } from './utils.svelte';
 import type {
 	ApiResponse,
 	SystemCapabilities,

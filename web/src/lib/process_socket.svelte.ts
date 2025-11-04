@@ -1,6 +1,6 @@
 // place files you want to import through the `$lib` alias in this folder.
 // import type {  } from './types';
-import { ws_url } from './utils';
+import { ws_url } from './utils.svelte';
 
 const ws = new WebSocket(import.meta.env.PROD ? ws_url('ws/p') : 'ws://localhost:30000/ws/p');
 

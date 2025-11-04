@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatBytes, formatBytesPerSecond } from '$lib/utils';
+	import { formatBytes, formatBytesPerSecond } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
 	import Chart from '$lib/Chart.svelte';
 

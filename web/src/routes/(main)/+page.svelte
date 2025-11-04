@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { formatUptime, formatBytes } from '$lib/utils';
+	import { formatUptime, formatBytes, capabilities } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
 	import Chart from '$lib/Chart.svelte';
 	import CpuChart from '$lib/CpuChart.svelte';
@@ -39,32 +39,34 @@
 		<!-- Left Column -->
 		<div>
 			<!-- CPU Overview -->
-			<div class="card">
-				<p class="card-title">CPU Usage</p>
-				<span class="usage">{gdata.data.cpu.avg_usage.toFixed(1)}%</span>
-				<div class="bar">
-					<div class="bar-fill" style="width: {gdata.data.cpu.avg_usage.toFixed(1)}%"></div>
-				</div>
-				<label class="switch-label">
-					<span>Show Cores</span>
-					<label class="switch">
-						<input type="checkbox" id="allCoresToggle" bind:checked={show_cores} />
-						<span class="slider"></span>
-					</label>
-				</label>
-				{#if show_cores}
-					<div id="cores" class="core-grid" transition:slide>
-						{#each gdata.data.cpu.usage as usage, i}
-							<div class="core">
-								<div class="core-item">
-									<p>Core {i + 1}</p>
-									<span class="core-value">{usage.toFixed(1)}%</span>
-								</div>
-							</div>
-						{/each}
+			{#if capabilities.cpu}
+				<div class="card">
+					<p class="card-title">CPU Usage</p>
+					<span class="usage">{gdata.data.cpu.avg_usage.toFixed(1)}%</span>
+					<div class="bar">
+						<div class="bar-fill" style="width: {gdata.data.cpu.avg_usage.toFixed(1)}%"></div>
 					</div>
-				{/if}
-			</div>
+					<label class="switch-label">
+						<span>Show Cores</span>
+						<label class="switch">
+							<input type="checkbox" id="allCoresToggle" bind:checked={show_cores} />
+							<span class="slider"></span>
+						</label>
+					</label>
+					{#if show_cores}
+						<div id="cores" class="core-grid" transition:slide>
+							{#each gdata.data.cpu.usage as usage, i}
+								<div class="core">
+									<div class="core-item">
+										<p>Core {i + 1}</p>
+										<span class="core-value">{usage.toFixed(1)}%</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
 			<!-- Quick Stats -->
 			<div class="card">
 				<div class="info-grid-0">
@@ -90,129 +92,141 @@
 		<!-- Right Column -->
 		<div>
 			<!-- Quick Memory Overview -->
-			<div class="card">
-				<p class="card-title">Memory Usage</p>
-				<span class="usage">{memoryPercentage}%</span>
-				<div class="bar">
-					<div class="bar-fill" style="width: {memoryPercentage}%"></div>
-				</div>
-				<div class="info-grid-0">
-					<div class="info-item">
-						<span class="info-label">Memory Used/Total:</span>
-						<span id="memory-used" class="info-value"
-							>{formatBytes(gdata.data.mem.used_mem)}/{formatBytes(gdata.data.mem.total_mem)}</span
-						>
+			{#if capabilities.memory}
+				<div class="card">
+					<p class="card-title">Memory Usage</p>
+					<span class="usage">{memoryPercentage}%</span>
+					<div class="bar">
+						<div class="bar-fill" style="width: {memoryPercentage}%"></div>
+					</div>
+					<div class="info-grid-0">
+						<div class="info-item">
+							<span class="info-label">Memory Used/Total:</span>
+							<span id="memory-used" class="info-value"
+								>{formatBytes(gdata.data.mem.used_mem)}/{formatBytes(
+									gdata.data.mem.total_mem
+								)}</span
+							>
+						</div>
+					</div>
+					<div style="height: 2rem;"></div>
+					<p class="card-title">Swap Usage</p>
+					<span class="usage">{swapPercentage}%</span>
+					<div class="bar">
+						<div class="bar-fill" style="width: {swapPercentage}%"></div>
+					</div>
+					<div class="info-grid-0">
+						<div class="info-item">
+							<span class="info-label">Swap Used/Total:</span>
+							<span id="memory-used" class="info-value"
+								>{formatBytes(gdata.data.mem.used_swap)}/{formatBytes(
+									gdata.data.mem.total_swap
+								)}</span
+							>
+						</div>
 					</div>
 				</div>
-				<div style="height: 2rem;"></div>
-				<p class="card-title">Swap Usage</p>
-				<span class="usage">{swapPercentage}%</span>
-				<div class="bar">
-					<div class="bar-fill" style="width: {swapPercentage}%"></div>
-				</div>
-				<div class="info-grid-0">
-					<div class="info-item">
-						<span class="info-label">Swap Used/Total:</span>
-						<span id="memory-used" class="info-value"
-							>{formatBytes(gdata.data.mem.used_swap)}/{formatBytes(
-								gdata.data.mem.total_swap
-							)}</span
-						>
-					</div>
-				</div>
-			</div>
+			{/if}
 
 			<!-- Load Average Card -->
-			<div class="card">
-				<p class="card-title">System Load</p>
-				<div class="load-average">
-					<div class="load-item">
-						<span class="load-label">1 Minute</span>
-						<span class="load-value" id="load-1">{gdata.data.sys.load_avg[0]}</span>
-					</div>
-					<div class="load-item">
-						<span class="load-label">5 Minutes</span>
-						<span class="load-value" id="load-5">{gdata.data.sys.load_avg[1]}</span>
-					</div>
-					<div class="load-item">
-						<span class="load-label">15 Minutes</span>
-						<span class="load-value" id="load-15">{gdata.data.sys.load_avg[2]}</span>
+			{#if capabilities.load_average}
+				<div class="card">
+					<p class="card-title">System Load</p>
+					<div class="load-average">
+						<div class="load-item">
+							<span class="load-label">1 Minute</span>
+							<span class="load-value" id="load-1">{gdata.data.sys.load_avg[0]}</span>
+						</div>
+						<div class="load-item">
+							<span class="load-label">5 Minutes</span>
+							<span class="load-value" id="load-5">{gdata.data.sys.load_avg[1]}</span>
+						</div>
+						<div class="load-item">
+							<span class="load-label">15 Minutes</span>
+							<span class="load-value" id="load-15">{gdata.data.sys.load_avg[2]}</span>
+						</div>
 					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 	</div>
 
 	<!-- CPU Chart Section -->
-	<div class="chart-card">
-		<p class="card-title">CPU Usage</p>
-		<div class="chart-controls">
-			<label>
-				<span>Show System Average</span>
-				<label class="switch">
-					<input type="checkbox" id="avgToggle" bind:checked={show_avg} />
-					<span class="slider"></span>
+	{#if capabilities.cpu}
+		<div class="chart-card">
+			<p class="card-title">CPU Usage</p>
+			<div class="chart-controls">
+				<label>
+					<span>Show System Average</span>
+					<label class="switch">
+						<input type="checkbox" id="avgToggle" bind:checked={show_avg} />
+						<span class="slider"></span>
+					</label>
 				</label>
-			</label>
-			<label class="switch-label">
-				<span>Show All Cores</span>
-				<label class="switch">
-					<input type="checkbox" id="allCoresToggle" bind:checked={show_graph_cores} />
-					<span class="slider"></span>
+				<label class="switch-label">
+					<span>Show All Cores</span>
+					<label class="switch">
+						<input type="checkbox" id="allCoresToggle" bind:checked={show_graph_cores} />
+						<span class="slider"></span>
+					</label>
 				</label>
-			</label>
+			</div>
+			<div style="min-height: 40vh;">
+				<CpuChart
+					{timestamps}
+					autoScale={false}
+					yAxisLabel="CPU Usage (%)"
+					data={cpu_data}
+					{cores}
+					{show_avg}
+					show_cores={show_graph_cores}
+				/>
+			</div>
 		</div>
-		<div style="min-height: 40vh;">
-			<CpuChart
-				{timestamps}
-				autoScale={false}
-				yAxisLabel="CPU Usage (%)"
-				data={cpu_data}
-				{cores}
-				{show_avg}
-				show_cores={show_graph_cores}
-			/>
-		</div>
-	</div>
+	{/if}
 
 	<!-- Memory Chart -->
-	<div class="chart-card">
-		<p class="card-title">Memory Usage</p>
-		<div style="min-height: 40vh;">
-			<Chart
-				{timestamps}
-				yAxisLabel="Memory Usage (%)"
-				autoScale={false}
-				data={[
-					gdata.prevDataPoints.map((x) => (x.mem.used_mem * 100) / x.mem.total_mem),
-					gdata.prevDataPoints.map((x) => (x.mem.used_swap * 100) / x.mem.total_swap)
-				]}
-				labels={['Memory', 'Swap']}
-				colors={['#4dabf7', '#ae3ec9']}
-				bg_colors={['rgba(77, 171, 247, 0.1)', 'rgba(174, 62, 201, 0.1)']}
-				fills={[true, false]}
-			/>
+	{#if capabilities.memory}
+		<div class="chart-card">
+			<p class="card-title">Memory Usage</p>
+			<div style="min-height: 40vh;">
+				<Chart
+					{timestamps}
+					yAxisLabel="Memory Usage (%)"
+					autoScale={false}
+					data={[
+						gdata.prevDataPoints.map((x) => (x.mem.used_mem * 100) / x.mem.total_mem),
+						gdata.prevDataPoints.map((x) => (x.mem.used_swap * 100) / x.mem.total_swap)
+					]}
+					labels={['Memory', 'Swap']}
+					colors={['#4dabf7', '#ae3ec9']}
+					bg_colors={['rgba(77, 171, 247, 0.1)', 'rgba(174, 62, 201, 0.1)']}
+					fills={[true, false]}
+				/>
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	<!-- Load Average Chart -->
-	<div class="chart-card">
-		<p class="card-title">System Load</p>
-		<div style="min-height: 30vh;">
-			<Chart
-				{timestamps}
-				yAxisLabel="Load Average"
-				autoScale={true}
-				data={[sys_load_1, sys_load_5, sys_load_15]}
-				labels={['1min', '5min', '15min']}
-				colors={['#4dabf7', '#ae3ec9', '#20c997']}
-				bg_colors={[
-					'rgba(77, 171, 247, 0.1)',
-					'rgba(174, 62, 201, 0.1)',
-					'rgba(32, 201, 151, 0.1)'
-				]}
-				fills={[false, false, false]}
-			/>
+	{#if capabilities.load_average}
+		<div class="chart-card">
+			<p class="card-title">System Load</p>
+			<div style="min-height: 30vh;">
+				<Chart
+					{timestamps}
+					yAxisLabel="Load Average"
+					autoScale={true}
+					data={[sys_load_1, sys_load_5, sys_load_15]}
+					labels={['1min', '5min', '15min']}
+					colors={['#4dabf7', '#ae3ec9', '#20c997']}
+					bg_colors={[
+						'rgba(77, 171, 247, 0.1)',
+						'rgba(174, 62, 201, 0.1)',
+						'rgba(32, 201, 151, 0.1)'
+					]}
+					fills={[false, false, false]}
+				/>
+			</div>
 		</div>
-	</div>
+	{/if}
 {/if}
