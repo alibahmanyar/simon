@@ -91,7 +91,7 @@ freebsd-x86_64:
 
 # Build all supported targets
 .PHONY: all-targets
-all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl
+all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl android-aarch64 android-armv7 android-x86_64 windows-x86_64 freebsd-x86_64
 	@echo "Creating release directory for GitHub artifacts..."
 	mkdir -p $(RELEASE_DIR)
 	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
@@ -102,7 +102,7 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
 	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
 	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
-	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
+	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
 	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
 	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
 	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
