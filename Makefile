@@ -2,7 +2,7 @@
 PROJECT_NAME := simon
 CARGO := cargo
 CROSS := cross
-RELEASE_DIR := target/artifacts
+RELEASE_DIR := bin-releases
 
 # Default target is the native build
 .PHONY: all
@@ -120,64 +120,77 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
 	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
 
-# Build GitHub release artifacts in Github Actions / Prune images to avoid disk space issues
+# Build GitHub release artifacts in Github Actions / Prune images and build artifacts to avoid disk space issues
 .PHONY: build-gh-release
 build-gh-release:
 	@echo "Building all targets for GitHub release..."
+	mkdir -p $(RELEASE_DIR)
+	
 	$(MAKE) linux-x86_64
+	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
+	rm -rf target/x86_64-unknown-linux-gnu
 	docker system prune -af
 	@echo "Completed linux-x86_64 - 1/13"
 	$(MAKE) linux-aarch64
+	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
+	rm -rf target/aarch64-unknown-linux-gnu
 	docker system prune -af
 	@echo "Completed linux-aarch64 - 2/13"
 	$(MAKE) linux-armv7
+	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
+	rm -rf target/armv7-unknown-linux-gnueabihf
 	docker system prune -af
 	@echo "Completed linux-armv7 - 3/13"
 	$(MAKE) linux-i686
+	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
+	rm -rf target/i686-unknown-linux-gnu
 	docker system prune -af
 	@echo "Completed linux-i686 - 4/13"
 	$(MAKE) linux-aarch64-musl
+	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
+	rm -rf target/aarch64-unknown-linux-musl
 	docker system prune -af
 	@echo "Completed linux-aarch64-musl - 5/13"
 	$(MAKE) linux-armv7-musl
+	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
+	rm -rf target/armv7-unknown-linux-musleabihf
 	docker system prune -af
 	@echo "Completed linux-armv7-musl - 6/13"
 	$(MAKE) linux-x86_64-musl
+	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
+	rm -rf target/x86_64-unknown-linux-musl
 	docker system prune -af
 	@echo "Completed linux-x86_64-musl - 7/13"
 	$(MAKE) linux-i686-musl
+	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
+	rm -rf target/i686-unknown-linux-musl
 	docker system prune -af
 	@echo "Completed linux-i686-musl - 8/13"
 	$(MAKE) android-aarch64
+	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
+	rm -rf target/aarch64-linux-android
 	docker system prune -af
 	@echo "Completed android-aarch64 - 9/13"
 	$(MAKE) android-armv7
+	cp target/armv7-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
+	rm -rf target/armv7-linux-android
 	docker system prune -af
 	@echo "Completed android-armv7 - 10/13"
 	$(MAKE) android-x86_64
+	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
+	rm -rf target/x86_64-linux-android
 	docker system prune -af
 	@echo "Completed android-x86_64 - 11/13"
 	$(MAKE) windows-x86_64
+	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
+	rm -rf target/x86_64-pc-windows-gnu
 	docker system prune -af
 	@echo "Completed windows-x86_64 - 12/13"
 	$(MAKE) freebsd-x86_64
+	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
+	rm -rf target/x86_64-unknown-freebsd
 	docker system prune -af
 	@echo "Completed freebsd-x86_64 - 13/13"
-
-	mkdir -p $(RELEASE_DIR)
-	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
-	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
-	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
-	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
-	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
-	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
-	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
-	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
-	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
-	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
-	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
-	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
-	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
 
 	@echo "Finished creating GitHub release artifacts in $(RELEASE_DIR)"
 

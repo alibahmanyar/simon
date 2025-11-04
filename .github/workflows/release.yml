@@ -51,17 +51,17 @@ jobs:
       with:
         args: --best
         files: |
-          target/github-release/*
+          bin-releases/*
       
     - name: Upload all compiled artifacts
       uses: actions/upload-artifact@v4
       with:
         name: simon-binaries
-        path: target/github-release/
+        path: bin-releases/*
     
     - uses: actions/attest-build-provenance@v3
       with:
-        subject-path: 'target/github-release/*'
+        subject-path: 'bin-releases/*'
     
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
@@ -72,7 +72,7 @@ jobs:
         body: ${{ github.event.inputs.release-body }}
         draft: ${{ github.event.inputs.draft }}
         prerelease: ${{ github.event.inputs.prerelease }}
-        file: target/github-release/*
+        file: bin-releases/*
         file_glob: true
       if: ${{ inputs.upload-artifacts == 'true' }}
 
