@@ -68,6 +68,26 @@ linux-x86_64-musl:
 linux-i686-musl:
 	$(CROSS) build --release --target i686-unknown-linux-musl
 
+.PHONY: android-aarch64
+android-aarch64:
+	$(CROSS) build --release --target aarch64-linux-android
+
+.PHONY: android-armv7
+android-armv7:
+	$(CROSS) build --release --target armv7-linux-androideabi
+
+.PHONY: android-x86_64
+android-x86_64:
+	$(CROSS) build --release --target x86_64-linux-android
+
+.PHONY: windows-x86_64
+windows-x86_64:
+	$(CROSS) build --release --target x86_64-pc-windows-gnu
+
+.PHONY: freebsd-x86_64
+freebsd-x86_64:
+	$(CROSS) build --release --target x86_64-unknown-freebsd
+
 
 # Build all supported targets
 .PHONY: all-targets
@@ -82,6 +102,11 @@ all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-mus
 	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
 	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
 	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
+	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
+	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
+	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
+	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
+	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
 
 # Install cross-compilation toolchains
 .PHONY: install-cross
@@ -127,6 +152,11 @@ help:
 	@echo "  linux-armv7-musl   32-bit ARM Linux (musl)"
 	@echo "  linux-x86_64-musl  64-bit Linux (x86_64, musl)"
 	@echo "  linux-i686-musl    32-bit Linux (x86, musl)"
+	@echo "  android-aarch64    64-bit ARM Android"
+	@echo "  android-armv7      32-bit ARM Android"
+	@echo "  android-x86_64     64-bit x86 Android"
+	@echo "  windows-x86_64     64-bit Windows (x86_64)"
+	@echo "  freebsd-x86_64     64-bit FreeBSD (x86_64)"
 	@echo ""
 	@echo "Special targets:"
 	@echo "  all-targets        Build all supported targets"

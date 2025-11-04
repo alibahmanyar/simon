@@ -1,0 +1,78 @@
+name: Release
+
+permissions:
+  contents: write
+  deployments: write
+  id-token: write
+  attestations: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload-artifacts:
+        description: 'Upload compiled artifacts to the release'
+        required: true
+        type: boolean
+      tag:
+        description: 'Tag to release'
+        required: false
+      name:
+        description: 'Release name'
+        required: false
+      body:
+        description: 'Release body'
+        required: false
+      draft:
+        description: 'Draft release'
+        required: false
+        type: boolean
+      prerelease:
+        description: 'Prerelease'
+        required: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: oven-sh/setup-bun@v2
+
+    - name: Checkout repository
+      uses: actions/checkout@v2
+  
+    - uses: Swatinem/rust-cache@v2
+  
+    - name: Run make build
+      run: make web-setup && make install-cross && make web && make all-targets
+    
+    - name: Compress binaries
+      uses: svenstaro/upx-action@v2
+      with:
+        args: --best
+        files: |
+          target/github-release/*
+      
+    - name: Upload all compiled artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: simon-binaries
+        path: target/github-release/
+    
+    - uses: actions/attest-build-provenance@v3
+      with:
+        subject-path: 'target/github-release/*'
+    
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.event.inputs.tag }}
+        release_name: ${{ github.event.inputs.release-name }}
+        body: ${{ github.event.inputs.release-body }}
+        draft: ${{ github.event.inputs.draft }}
+        prerelease: ${{ github.event.inputs.prerelease }}
+        file: target/github-release/*
+        file_glob: true
+      if: ${{ inputs.upload-artifacts == 'true' }}
+
