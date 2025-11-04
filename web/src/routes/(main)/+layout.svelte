@@ -42,6 +42,7 @@
 			<a class="tab" class:active={page.url.pathname === '/graphs'} href="graphs"
 				>Historical Charts</a
 			>
+			<a class="tab" class:active={page.url.pathname === '/files'} href="/files">Files</a>
 			<a
 				class="tab home-button"
 				href="/notif_methods"

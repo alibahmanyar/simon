@@ -6,7 +6,8 @@ import type {
 	HistoricalSeries,
 	Alert,
 	AlertVar,
-	NotificationMethod
+	NotificationMethod,
+	DirectoryListing
 } from './types';
 
 /**
@@ -164,6 +165,54 @@ export async function getContainerLogs(
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'Failed to load logs'
+		};
+	}
+}
+
+/**
+ * Get configured serve directories
+ */
+export async function getServeDirs() {
+	return apiFetch<string[]>('api/files/dirs');
+}
+
+/**
+ * Browse a directory
+ */
+export async function browseDirectory(path: string) {
+	return apiFetch<DirectoryListing>(`api/files/browse?path=${encodeURIComponent(path)}`);
+}
+
+/**
+ * Get file content
+ */
+export async function getFileContent(
+	path: string
+): Promise<{ success: true; data: string } | { success: false; error: string }> {
+	try {
+		const addr = import.meta.env.PROD
+			? `/api/files/content?path=${encodeURIComponent(path)}`
+			: `http://localhost:30000/api/files/content?path=${encodeURIComponent(path)}`;
+
+		const response = await fetch(addr);
+
+		if (!response.ok) {
+			return {
+				success: false,
+				error: `Failed to fetch file content: ${response.status}`
+			};
+		}
+
+		const text = await response.text();
+
+		return {
+			success: true,
+			data: text
+		};
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to load file content'
 		};
 	}
 }

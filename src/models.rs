@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemCapabilities {
     pub cpu: bool,
     pub memory: bool,
@@ -11,6 +11,7 @@ pub struct SystemCapabilities {
     pub disk: bool,
     pub processes: bool,
     pub docker: bool,
+    pub file_serving: bool,
 }
 
 pub const ALERT_VARIABLES: [(&str, &str); 11] = [
@@ -233,4 +234,20 @@ pub struct EmailNotif {
     pub to: String,
     pub subject: String,
     pub body: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileEntry {
+    pub name: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub modified: u64,
+    pub created: u64,
+    pub permissions: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DirectoryListing {
+    pub path: String,
+    pub entries: Vec<FileEntry>,
 }

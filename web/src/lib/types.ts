@@ -13,6 +13,7 @@ export interface SystemCapabilities {
 	disk: boolean;
 	processes: boolean;
 	docker: boolean;
+	file_serving: boolean;
 }
 
 export interface HistoricalQueryOptions {
@@ -151,4 +152,18 @@ export interface Alert {
 	time_window: number;
 	firing: boolean;
 	notif_methods: string[];
+}
+
+export interface FileEntry {
+	name: string;
+	is_dir: boolean;
+	size: number;
+	modified: number;
+	created: number;
+	permissions: string;
+}
+
+export interface DirectoryListing {
+	path: string;
+	entries: FileEntry[];
 }

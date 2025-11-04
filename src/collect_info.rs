@@ -1,4 +1,4 @@
-use crate::models::*;
+use crate::{config::Config, models::*};
 use bollard::{
     Docker,
     container::{ListContainersOptions, StatsOptions},
@@ -7,7 +7,7 @@ use futures::StreamExt;
 use log::{debug, info, trace, warn};
 use sysinfo::{Disks, Networks, System};
 
-pub fn detect_system_capabilities() -> SystemCapabilities {
+pub fn detect_system_capabilities(config: Config) -> SystemCapabilities {
     info!("Detecting system capabilities");
 
     let mut capabilities = SystemCapabilities {
@@ -19,6 +19,7 @@ pub fn detect_system_capabilities() -> SystemCapabilities {
         disk: false,
         processes: false,
         docker: false,
+        file_serving: config.serve_dirs.is_empty() == false,
     };
 
     // Test CPU detection
@@ -456,6 +457,10 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
 
 #[cfg(test)]
 mod tests {
+    use std::net::IpAddr;
+
+    use crate::config;
+
     use super::*;
 
     #[test]
@@ -463,7 +468,17 @@ mod tests {
         use std::time::Instant;
         let now = Instant::now();
 
-        let capabilities = detect_system_capabilities();
+        let config = config::Config {
+            serve_dirs: vec!["/tmp".to_string()],
+            address: IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            port: 8080,
+            db_path: "test_db_path".to_string(),
+            password_hash: None,
+            jwt_secret: "".to_string(),
+            update_interval: 60,
+            system_capabilities: SystemCapabilities::default(),
+        };
+        let capabilities = detect_system_capabilities(config);
 
         println!("Elapsed: {:.2?}", now.elapsed());
         println!("System Capabilities:");

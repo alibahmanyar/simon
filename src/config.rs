@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 
 use crate::db;
+use crate::models;
 
 #[derive(Parser, Debug, Clone, Serialize, Deserialize)]
 #[command(version, about = "Simon - Simple Monitor")]
@@ -30,9 +31,17 @@ pub struct Config {
     #[arg(long, default_value = "./simon-data/simon.db", env = "SIMON_DB_PATH")]
     pub db_path: String,
 
+    /// Directories to serve static files from.
+    /// Multiple directories can be specified. If empty, file serving is disabled.
+    #[arg(long = "serve-dir", env = "SIMON_SERVE_DIRS", value_delimiter = ',')]
+    pub serve_dirs: Vec<String>,
+
     /// JWT secret key for authentication tokens
     #[arg(skip)]
     pub jwt_secret: String,
+
+    #[arg(skip)]
+    pub system_capabilities: models::SystemCapabilities,
 }
 
 impl Config {

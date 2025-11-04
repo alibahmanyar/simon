@@ -1,7 +1,7 @@
 use crate::collect_info;
 use crate::config::Config;
 use crate::db::Database;
-use crate::models::{self, ApiResponse, NotificationMethod};
+use crate::models::{self, ApiResponse, DirectoryListing, FileEntry, NotificationMethod};
 use axum::Json;
 use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
@@ -19,7 +19,9 @@ use log::{debug, error, info, warn};
 use models::HistoricalQueryOptions;
 use rust_embed::Embed;
 use serde_json;
+use std::fs;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{
@@ -30,6 +32,23 @@ use tokio::{
 #[derive(Embed)]
 #[folder = "web/build/static"]
 struct Asset;
+
+/// Validates that a path is within one of the allowed serve directories
+/// Returns the canonical path if allowed, or None if access should be denied
+fn validate_path_access(path: &str, allowed_dirs: &[String]) -> Option<PathBuf> {
+    let path_buf = PathBuf::from(path);
+    let canonical_path = path_buf.canonicalize().ok()?;
+
+    for serve_dir in allowed_dirs {
+        if let Ok(serve_path) = PathBuf::from(serve_dir).canonicalize() {
+            if canonical_path.starts_with(&serve_path) {
+                return Some(canonical_path);
+            }
+        }
+    }
+
+    None
+}
 
 pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     let mut path = request.uri().path();
@@ -89,7 +108,31 @@ pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
     }
 }
 
-pub async fn req_info(ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> String {
+pub async fn fallback_handler(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    request: Request<Body>,
+) -> axum::response::Response {
+    let path = request.uri().path();
+
+    if path.ends_with("reqinfo") {
+        return req_info(ConnectInfo(addr), headers, request)
+            .await
+            .into_response();
+    }
+
+    // Otherwise, serve static files
+    serve_static(request).await.into_response()
+}
+
+pub async fn req_info(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    request: Request<Body>,
+) -> String {
+    let method = request.method().to_string();
+    let path = request.uri().path().to_string();
+
     let headers_str = headers
         .iter()
         .map(|(k, v)| format!("{}: {}", k, v.to_str().unwrap()))
@@ -99,7 +142,17 @@ pub async fn req_info(ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: Heade
     info!("Request info from IP: {}", addr);
     debug!("Headers: {}", headers_str);
 
-    format!("IP: {}\n\nHeaders:\n{}", addr, headers_str)
+    format!(
+        "Method: {}\nPath: {}\nIP: {}\n\nHeaders:\n{}",
+        method, path, addr, headers_str
+    )
+}
+
+pub async fn capabilities_handler(
+    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+) -> impl IntoResponse {
+    debug!("Capabilities requested");
+    Json(ApiResponse::success(config.system_capabilities.clone())).into_response()
 }
 
 // docker
@@ -549,4 +602,314 @@ pub async fn get_alert_vars(
     };
 
     Json(ApiResponse::success(vars)).into_response()
+}
+
+pub async fn get_serve_dirs(
+    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+) -> impl IntoResponse {
+    debug!("Getting serve directories");
+    if !config.system_capabilities.file_serving {
+        return Json(ApiResponse::<Vec<String>>::error(
+            "File serving is disabled".to_string(),
+        ))
+        .into_response();
+    }
+    Json(ApiResponse::success(config.serve_dirs.clone())).into_response()
+}
+
+pub async fn browse_directory(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return Json(ApiResponse::<Vec<String>>::error(
+            "File serving is disabled".to_string(),
+        ))
+        .into_response();
+    }
+
+    let path = match params.get("path") {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<DirectoryListing>::error(
+                    "Missing path parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    debug!("Browsing directory: {}", path);
+
+    // Security check: Ensure the path is within one of the allowed serve_dirs
+    let canonical_path = match validate_path_access(path, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to path: {}", path);
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ApiResponse::<DirectoryListing>::error(
+                    "Access denied".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    // Read directory contents
+    let entries = match fs::read_dir(&canonical_path) {
+        Ok(entries) => entries,
+        Err(e) => {
+            error!("Failed to read directory: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<DirectoryListing>::error(format!(
+                    "Failed to read directory: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let mut file_entries: Vec<FileEntry> = Vec::new();
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+
+        let name = entry.file_name().to_string_lossy().to_string();
+        let is_dir = metadata.is_dir();
+        let size = metadata.len();
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let created = metadata
+            .created()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // Get permissions string (Unix-style)
+        #[cfg(unix)]
+        let permissions = {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = metadata.permissions().mode();
+            format!(
+                "{}{}{}{}{}{}{}{}{}",
+                if mode & 0o400 != 0 { 'r' } else { '-' },
+                if mode & 0o200 != 0 { 'w' } else { '-' },
+                if mode & 0o100 != 0 { 'x' } else { '-' },
+                if mode & 0o040 != 0 { 'r' } else { '-' },
+                if mode & 0o020 != 0 { 'w' } else { '-' },
+                if mode & 0o010 != 0 { 'x' } else { '-' },
+                if mode & 0o004 != 0 { 'r' } else { '-' },
+                if mode & 0o002 != 0 { 'w' } else { '-' },
+                if mode & 0o001 != 0 { 'x' } else { '-' },
+            )
+        };
+
+        #[cfg(not(unix))]
+        let permissions = if metadata.permissions().readonly() {
+            "r--r--r--".to_string()
+        } else {
+            "rw-rw-rw-".to_string()
+        };
+
+        file_entries.push(FileEntry {
+            name,
+            is_dir,
+            size,
+            modified,
+            created,
+            permissions,
+        });
+    }
+
+    // Sort: directories first, then by name
+    file_entries.sort_by(|a, b| {
+        if a.is_dir == b.is_dir {
+            a.name.to_lowercase().cmp(&b.name.to_lowercase())
+        } else if a.is_dir {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    });
+
+    Json(ApiResponse::success(DirectoryListing {
+        path: path.clone(),
+        entries: file_entries,
+    }))
+    .into_response()
+}
+
+pub async fn download_file(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return Json(ApiResponse::<Vec<String>>::error(
+            "File serving is disabled".to_string(),
+        ))
+        .into_response();
+    }
+
+    let path = match params.get("path") {
+        Some(p) => p,
+        None => {
+            return (StatusCode::BAD_REQUEST, "Missing path parameter").into_response();
+        }
+    };
+
+    // Check if this is a view request (inline) or download request (attachment)
+    let is_inline = params.get("inline").map(|v| v == "true").unwrap_or(false);
+
+    if is_inline {
+        debug!("Viewing file inline: {}", path);
+    } else {
+        debug!("Downloading file: {}", path);
+    }
+
+    // Security check: Ensure the path is within one of the allowed serve_dirs
+    let canonical_path = match validate_path_access(path, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to file: {}", path);
+            return (StatusCode::FORBIDDEN, "Access denied").into_response();
+        }
+    };
+
+    // Check if it's a file (not a directory)
+    if canonical_path.is_dir() {
+        return (StatusCode::BAD_REQUEST, "Cannot download a directory").into_response();
+    }
+
+    // Read file contents
+    match tokio::fs::read(&canonical_path).await {
+        Ok(contents) => {
+            let filename = canonical_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("download");
+
+            let mime_type = mime_guess::from_path(&canonical_path)
+                .first_or_octet_stream()
+                .to_string();
+
+            let content_disposition = if is_inline {
+                format!("inline; filename=\"{}\"", filename)
+            } else {
+                format!("attachment; filename=\"{}\"", filename)
+            };
+
+            (
+                StatusCode::OK,
+                [
+                    ("Content-Type", mime_type.as_str()),
+                    ("Content-Disposition", content_disposition.as_str()),
+                ],
+                contents,
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to read file: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to read file: {}", e),
+            )
+                .into_response()
+        }
+    }
+}
+
+pub async fn get_file_content(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return Json(ApiResponse::<Vec<String>>::error(
+            "File serving is disabled".to_string(),
+        ))
+        .into_response();
+    }
+
+    let path = match params.get("path") {
+        Some(p) => p,
+        None => {
+            return (StatusCode::BAD_REQUEST, "Missing path parameter").into_response();
+        }
+    };
+
+    debug!("Getting file content: {}", path);
+
+    // Security check: Ensure the path is within one of the allowed serve_dirs
+    let canonical_path = match validate_path_access(path, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to file: {}", path);
+            return (StatusCode::FORBIDDEN, "Access denied").into_response();
+        }
+    };
+
+    // Check if it's a file (not a directory)
+    if canonical_path.is_dir() {
+        return (StatusCode::BAD_REQUEST, "Cannot read a directory").into_response();
+    }
+
+    // Check file size (limit to 10MB for text viewing)
+    match tokio::fs::metadata(&canonical_path).await {
+        Ok(metadata) => {
+            if metadata.len() > 10_485_760 {
+                // 10MB
+                return (StatusCode::PAYLOAD_TOO_LARGE, "File too large to display")
+                    .into_response();
+            }
+        }
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to read file metadata",
+            )
+                .into_response();
+        }
+    }
+
+    // Read file contents
+    match tokio::fs::read_to_string(&canonical_path).await {
+        Ok(contents) => {
+            let mime_type = mime_guess::from_path(&canonical_path)
+                .first_or_octet_stream()
+                .to_string();
+
+            (
+                StatusCode::OK,
+                [("Content-Type", mime_type.as_str())],
+                contents,
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to read file: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to read file: {}", e),
+            )
+                .into_response()
+        }
+    }
 }
