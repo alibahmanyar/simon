@@ -3,6 +3,7 @@ PROJECT_NAME := simon
 CARGO := cargo
 CROSS := cross
 RELEASE_DIR := bin-releases
+CLEANUP ?= false
 
 # Default target is the native build
 .PHONY: all
@@ -40,164 +41,237 @@ install: release
 linux-x86_64:
 	@echo "Building for linux-x86_64..."
 	$(CROSS) build --release --target x86_64-unknown-linux-gnu
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-x86_64 build artifacts..."; \
+		rm -rf target/x86_64-unknown-linux-gnu; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-aarch64
 linux-aarch64:
 	@echo "Building for linux-aarch64..."
 	$(CROSS) build --release --target aarch64-unknown-linux-gnu
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-aarch64 build artifacts..."; \
+		rm -rf target/aarch64-unknown-linux-gnu; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-armv7
 linux-armv7:
 	@echo "Building for linux-armv7..."
 	$(CROSS) build --release --target armv7-unknown-linux-gnueabihf
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-armv7 build artifacts..."; \
+		rm -rf target/armv7-unknown-linux-gnueabihf; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-i686
 linux-i686:
 	@echo "Building for linux-i686..."
 	$(CROSS) build --release --target i686-unknown-linux-gnu
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-i686 build artifacts..."; \
+		rm -rf target/i686-unknown-linux-gnu; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-aarch64-musl
 linux-aarch64-musl:
 	@echo "Building for linux-aarch64-musl..."
 	$(CROSS) build --release --target aarch64-unknown-linux-musl
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-aarch64-musl build artifacts..."; \
+		rm -rf target/aarch64-unknown-linux-musl; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-armv7-musl
 linux-armv7-musl:
 	@echo "Building for linux-armv7-musl..."
 	$(CROSS) build --release --target armv7-unknown-linux-musleabihf
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-armv7-musl build artifacts..."; \
+		rm -rf target/armv7-unknown-linux-musleabihf; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-x86_64-musl
 linux-x86_64-musl:
 	@echo "Building for linux-x86_64-musl..."
 	$(CROSS) build --release --target x86_64-unknown-linux-musl
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-x86_64-musl build artifacts..."; \
+		rm -rf target/x86_64-unknown-linux-musl; \
+		docker system prune -af; \
+	fi
 
 .PHONY: linux-i686-musl
 linux-i686-musl:
 	@echo "Building for linux-i686-musl..."
 	$(CROSS) build --release --target i686-unknown-linux-musl
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-i686-musl build artifacts..."; \
+		rm -rf target/i686-unknown-linux-musl; \
+		docker system prune -af; \
+	fi
 
 .PHONY: android-aarch64
 android-aarch64:
 	@echo "Building for android-aarch64..."
 	$(CROSS) build --release --target aarch64-linux-android
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up android-aarch64 build artifacts..."; \
+		rm -rf target/aarch64-linux-android; \
+		docker system prune -af; \
+	fi
 
 .PHONY: android-armv7
 android-armv7:
 	@echo "Building for android-armv7..."
 	$(CROSS) build --release --target armv7-linux-androideabi
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up android-armv7 build artifacts..."; \
+		rm -rf target/armv7-linux-androideabi; \
+		docker system prune -af; \
+	fi
 
 .PHONY: android-x86_64
 android-x86_64:
 	@echo "Building for android-x86_64..."
 	$(CROSS) build --release --target x86_64-linux-android
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up android-x86_64 build artifacts..."; \
+		rm -rf target/x86_64-linux-android; \
+		docker system prune -af; \
+	fi
 
 .PHONY: windows-x86_64
 windows-x86_64:
 	@echo "Building for windows-x86_64..."
 	$(CROSS) build --release --target x86_64-pc-windows-gnu
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up windows-x86_64 build artifacts..."; \
+		rm -rf target/x86_64-pc-windows-gnu; \
+		docker system prune -af; \
+	fi
 
 .PHONY: freebsd-x86_64
 freebsd-x86_64:
 	@echo "Building for freebsd-x86_64..."
 	$(CROSS) build --release --target x86_64-unknown-freebsd
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up freebsd-x86_64 build artifacts..."; \
+		rm -rf target/x86_64-unknown-freebsd; \
+		docker system prune -af; \
+	fi
 
 
 # Build all supported targets
 .PHONY: all-targets
 all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl android-aarch64 android-armv7 android-x86_64 windows-x86_64 freebsd-x86_64
-	mkdir -p $(RELEASE_DIR)
-	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
-	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
-	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
-	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
-	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
-	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
-	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
-	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
-	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
-	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
-	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
-	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
-	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
 
-# Build GitHub release artifacts in Github Actions / Prune images and build artifacts to avoid disk space issues
-.PHONY: build-gh-release
-build-gh-release:
+
+# CI: Build GitHub release artifacts sequentially. For each target this copies the release binary into $(RELEASE_DIR),
+# then removes the target build directory and prunes Docker to avoid running out of disk space on CI runners.
+.PHONY: ci-release
+ci-release:
 	@echo "Building all targets for GitHub release..."
-	mkdir -p $(RELEASE_DIR)
-	
-	$(MAKE) linux-x86_64
-	cp target/x86_64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux
-	rm -rf target/x86_64-unknown-linux-gnu
-	docker system prune -af
+	@mkdir -p $(RELEASE_DIR)
+	@$(MAKE) linux-x86_64 CLEANUP=true
 	@echo "Completed linux-x86_64 - 1/13"
-	$(MAKE) linux-aarch64
-	cp target/aarch64-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux
-	rm -rf target/aarch64-unknown-linux-gnu
-	docker system prune -af
+	@$(MAKE) linux-aarch64 CLEANUP=true
 	@echo "Completed linux-aarch64 - 2/13"
-	$(MAKE) linux-armv7
-	cp target/armv7-unknown-linux-gnueabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux
-	rm -rf target/armv7-unknown-linux-gnueabihf
-	docker system prune -af
+	@$(MAKE) linux-armv7 CLEANUP=true
 	@echo "Completed linux-armv7 - 3/13"
-	$(MAKE) linux-i686
-	cp target/i686-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux
-	rm -rf target/i686-unknown-linux-gnu
-	docker system prune -af
+	@$(MAKE) linux-i686 CLEANUP=true
 	@echo "Completed linux-i686 - 4/13"
-	$(MAKE) linux-aarch64-musl
-	cp target/aarch64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-linux-musl
-	rm -rf target/aarch64-unknown-linux-musl
-	docker system prune -af
+	@$(MAKE) linux-aarch64-musl CLEANUP=true
 	@echo "Completed linux-aarch64-musl - 5/13"
-	$(MAKE) linux-armv7-musl
-	cp target/armv7-unknown-linux-musleabihf/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-linux-musl
-	rm -rf target/armv7-unknown-linux-musleabihf
-	docker system prune -af
+	@$(MAKE) linux-armv7-musl CLEANUP=true
 	@echo "Completed linux-armv7-musl - 6/13"
-	$(MAKE) linux-x86_64-musl
-	cp target/x86_64-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-linux-musl
-	rm -rf target/x86_64-unknown-linux-musl
-	docker system prune -af
+	@$(MAKE) linux-x86_64-musl CLEANUP=true
 	@echo "Completed linux-x86_64-musl - 7/13"
-	$(MAKE) linux-i686-musl
-	cp target/i686-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-i686-linux-musl
-	rm -rf target/i686-unknown-linux-musl
-	docker system prune -af
+	@$(MAKE) linux-i686-musl CLEANUP=true
 	@echo "Completed linux-i686-musl - 8/13"
-	$(MAKE) android-aarch64
-	cp target/aarch64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-aarch64-android
-	rm -rf target/aarch64-linux-android
-	docker system prune -af
+	@$(MAKE) android-aarch64 CLEANUP=true
 	@echo "Completed android-aarch64 - 9/13"
-	$(MAKE) android-armv7
-	cp target/armv7-linux-androideabi/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-armv7-android
-	rm -rf target/armv7-linux-androideabi
-	docker system prune -af
+	@$(MAKE) android-armv7 CLEANUP=true
 	@echo "Completed android-armv7 - 10/13"
-	$(MAKE) android-x86_64
-	cp target/x86_64-linux-android/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-android
-	rm -rf target/x86_64-linux-android
-	docker system prune -af
+	@$(MAKE) android-x86_64 CLEANUP=true
 	@echo "Completed android-x86_64 - 11/13"
-	$(MAKE) windows-x86_64
-	cp target/x86_64-pc-windows-gnu/release/$(PROJECT_NAME).exe $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-windows.exe
-	rm -rf target/x86_64-pc-windows-gnu
-	docker system prune -af
+	@$(MAKE) windows-x86_64 CLEANUP=true
 	@echo "Completed windows-x86_64 - 12/13"
-	$(MAKE) freebsd-x86_64
-	cp target/x86_64-unknown-freebsd/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-x86_64-freebsd
-	rm -rf target/x86_64-unknown-freebsd
-	docker system prune -af
+	@$(MAKE) freebsd-x86_64 CLEANUP=true
 	@echo "Completed freebsd-x86_64 - 13/13"
-
+	@echo "Running UPX compression on Linux binaries..."
 	@echo "Finished creating GitHub release artifacts in $(RELEASE_DIR)"
 
 # Install cross-compilation toolchains
 .PHONY: install-cross
 install-cross:
 	cargo install cross --git https://github.com/cross-rs/cross
+
+# Install UPX (Ultimate Packer for eXecutables)
+.PHONY: install-upx
+install-upx:
+	@echo "Installing UPX..."
+	@if command -v upx >/dev/null 2>&1; then \
+		echo "UPX is already installed: $$(upx --version | head -n1)"; \
+	else \
+		echo "UPX not found. Installing..."; \
+		if command -v apt-get >/dev/null 2>&1; then \
+			sudo apt-get update && sudo apt-get install -y upx; \
+		elif command -v dnf >/dev/null 2>&1; then \
+			sudo dnf install -y upx; \
+		else \
+			echo "ERROR: Package manager not supported. Please install UPX manually."; \
+			exit 1; \
+		fi; \
+	fi
+
+# Compress Linux binaries with UPX
+.PHONY: upx-compress
+upx-compress:
+	@echo "Compressing Linux binaries with UPX..."
+	@if ! command -v upx >/dev/null 2>&1; then \
+		echo "ERROR: UPX is not installed. Run 'make install-upx' first."; \
+		exit 1; \
+	fi
+	@for binary in $(RELEASE_DIR)/$(PROJECT_NAME)-*-linux $(RELEASE_DIR)/$(PROJECT_NAME)-*-linux-musl; do \
+		if [ -f "$$binary" ]; then \
+			echo "Compressing $$binary..."; \
+			upx --best --lzma "$$binary" || echo "Warning: Failed to compress $$binary"; \
+		fi; \
+	done
+	@echo "UPX compression completed!"
 
 .PHONY: docker
 docker:
@@ -218,40 +292,73 @@ web-setup:
 # Help
 .PHONY: help
 help:
-	@echo "$(PROJECT_NAME) Makefile help:"
+	@echo "╔════════════════════════════════════════════════════════════════════════════╗"
+	@echo "║                           $(PROJECT_NAME) - Makefile Help                            ║"
+	@echo "╚════════════════════════════════════════════════════════════════════════════╝"
 	@echo ""
-	@echo "Standard targets:"
-	@echo "  all          Default target, builds in debug mode"
-	@echo "  build        Build in debug mode"
-	@echo "  release      Build with optimizations"
-	@echo "  run          Build and run the project"
-	@echo "  test         Run tests"
-	@echo "  clean        Remove build artifacts"
-	@echo "  install      Install release binary to /usr/local/bin"
+	@echo "STANDARD TARGETS"
+	@echo "  all                    Default target, builds in debug mode"
+	@echo "  build                  Build in debug mode"
+	@echo "  release                Build with optimizations"
+	@echo "  test                   Run all tests"
+	@echo "  clean                  Remove all build artifacts and web builds"
+	@echo "  install                Install release binary to /usr/local/bin (requires sudo)"
 	@echo ""
-	@echo "Cross-compilation targets:"
-	@echo "  linux-x86_64       64-bit Linux (x86_64)"
-	@echo "  linux-aarch64      64-bit ARM Linux"
-	@echo "  linux-armv7        32-bit ARM Linux"
-	@echo "  linux-i686         32-bit Linux (x86)"
-	@echo "  linux-aarch64-musl 64-bit ARM Linux (musl)"
-	@echo "  linux-armv7-musl   32-bit ARM Linux (musl)"
-	@echo "  linux-x86_64-musl  64-bit Linux (x86_64, musl)"
-	@echo "  linux-i686-musl    32-bit Linux (x86, musl)"
-	@echo "  android-aarch64    64-bit ARM Android"
-	@echo "  android-armv7      32-bit ARM Android"
-	@echo "  android-x86_64     64-bit x86 Android"
-	@echo "  windows-x86_64     64-bit Windows (x86_64)"
-	@echo "  freebsd-x86_64     64-bit FreeBSD (x86_64)"
+	@echo "LINUX CROSS-COMPILATION TARGETS"
+	@echo "  linux-x86_64           64-bit Linux (glibc)"
+	@echo "  linux-aarch64          64-bit ARM Linux (glibc)"
+	@echo "  linux-armv7            32-bit ARMv7 Linux (glibc)"
+	@echo "  linux-i686             32-bit x86 Linux (glibc)"
 	@echo ""
-	@echo "Special targets:"
-	@echo "  all-targets        Build all supported targets"
-	@echo "  install-cross      Install all cross-compilation toolchains"
-	@echo "  docker             Build a Docker image"
-	@echo "  docker-all         Build a multi-arch Docker image"
-	@echo "  web                Build the web frontend"
-	@echo "  web-setup          Install web dependencies"
+	@echo "LINUX MUSL TARGETS (Static linking)"
+	@echo "  linux-x86_64-musl      64-bit Linux (musl, static)"
+	@echo "  linux-aarch64-musl     64-bit ARM Linux (musl, static)"
+	@echo "  linux-armv7-musl       32-bit ARMv7 Linux (musl, static)"
+	@echo "  linux-i686-musl        32-bit x86 Linux (musl, static)"
 	@echo ""
-	@echo "Miscellaneous:"
-	@echo "  help               Show this help message"
+	@echo "ANDROID TARGETS"
+	@echo "  android-aarch64        64-bit ARM Android (API 21+)"
+	@echo "  android-armv7          32-bit ARMv7 Android (API 16+)"
+	@echo "  android-x86_64         64-bit x86_64 Android (API 21+)"
+	@echo ""
+	@echo "WINDOWS TARGETS"
+	@echo "  windows-x86_64         64-bit Windows (MinGW)"
+	@echo ""
+	@echo "BSD TARGETS"
+	@echo "  freebsd-x86_64         64-bit FreeBSD"
+	@echo ""
+	@echo "BATCH BUILD TARGETS"
+	@echo "  all-targets            Build all supported targets (13 platforms)"
+	@echo "  build-gh-release       Build all targets for GitHub release (optimized for CI)"
+	@echo ""
+	@echo "DOCKER TARGETS"
+	@echo "  docker                 Build Docker image for current platform"
+	@echo "  docker-all             Build multi-arch Docker image (amd64, arm64, 386, armv7)"
+	@echo ""
+	@echo "WEB FRONTEND TARGETS"
+	@echo "  web-setup              Install web dependencies (requires bun)"
+	@echo "  web                    Build the web frontend (SvelteKit)"
+	@echo ""
+	@echo "TOOLCHAIN SETUP"
+	@echo "  install-cross          Install cross-compilation toolchain (cargo-cross)"
+	@echo "  install-upx            Install UPX (Ultimate Packer for eXecutables)"
+	@echo ""
+	@echo "COMPRESSION"
+	@echo "  upx-compress           Compress Linux binaries in $(RELEASE_DIR) with UPX"
+	@echo ""
+	@echo "HELP"
+	@echo "  help                   Show this help message"
+	@echo ""
+	@echo "USAGE EXAMPLES:"
+	@echo "  make                   # Build in debug mode"
+	@echo "  make release           # Build optimized binary"
+	@echo "  make linux-aarch64     # Cross-compile for ARM64 Linux"
+	@echo "  make all-targets       # Build for all platforms"
+	@echo "  make web && make build # Build web frontend and backend"
+	@echo ""
+	@echo "NOTES:"
+	@echo "  • Cross-compilation requires 'cross' (run: make install-cross)"
+	@echo "  • Web builds require 'bun' package manager"
+	@echo "  • Release binaries are placed in: target/<arch>/release/"
+	@echo "  • Batch builds output to: $(RELEASE_DIR)/"
 	@echo ""

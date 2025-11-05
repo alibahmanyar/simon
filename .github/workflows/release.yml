@@ -43,8 +43,11 @@ jobs:
   
     - uses: Swatinem/rust-cache@v2
   
-    - name: Run make build
-      run: make web-setup && make install-cross && make web && make build-gh-release
+    - name: Set up build environment
+      run: make web-setup && make install-cross && make install-upx
+      
+    - name: Build all binaries
+      run: make web && make ci-release && make upx-compress
     
     - name: Compress binaries
       uses: svenstaro/upx-action@v2
@@ -68,8 +71,8 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.event.inputs.tag }}
-        release_name: ${{ github.event.inputs.release-name }}
-        body: ${{ github.event.inputs.release-body }}
+        release_name: ${{ github.event.inputs.name }}
+        body: ${{ github.event.inputs.body }}
         draft: ${{ github.event.inputs.draft }}
         prerelease: ${{ github.event.inputs.prerelease }}
         file: bin-releases/*
