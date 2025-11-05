@@ -212,7 +212,7 @@
 					});
 
 					if (res.status === 200) {
-						window.location.href = window.location.href.slice(0, -'/auth'.length);
+						window.location.href = window.location.href.slice(0, -'auth'.length);
 					} else if (res.status === 401) {
 						showError('Wrong password');
 					} else {

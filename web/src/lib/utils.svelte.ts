@@ -64,14 +64,28 @@ export const var2unit: { [key: string]: string } = {
 	tx: 'B'
 };
 
+let paths = ["/", "/alerts", "/docker", "/files", "/graphs", "/network", "/notif_methods", "/processes", "/storage"];
+
+function getBaseUrl() {
+	let href = page.url.href;
+	if (href[href.length - 1] === '/') {
+		href = href.slice(0, -1);
+	}
+	for (let path of paths) {
+		if (href.endsWith(path)) {
+			return href.slice(0, -path.length);
+		}
+	}
+	return href;
+}
+
+
 export function ws_url(s: string) {
-	const base = page.url.href.replaceAll('http', 'ws').slice(0, -page.url.pathname.length);
-	return base + '/' + s;
+	return getBaseUrl().replaceAll('http', 'ws') + '/' + s;
 }
 
 export function url(s: string) {
-	const base = page.url.href.slice(0, -page.url.pathname.length);
-	return base + '/' + s;
+	return getBaseUrl() + '/' + s;
 }
 
 // Format bytes to human readable format

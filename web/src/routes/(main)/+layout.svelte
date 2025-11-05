@@ -36,26 +36,26 @@
 <div class="dashboard">
 	{#if gdata.status === wsStatus.CONNECTED}
 		<nav class="tabs">
-			<a class="tab" class:active={page.url.pathname === '/'} href="/">Overview</a>
+			<a class="tab" class:active={page.url.pathname.endsWith('/')} href="./">Overview</a>
 			{#if capabilities?.disk}
-				<a class="tab" class:active={page.url.pathname === '/storage'} href="storage">Storage</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage">Storage</a>
 			{/if}
 			{#if capabilities?.network}
-				<a class="tab" class:active={page.url.pathname === '/network'} href="network">Network</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/network')} href="network">Network</a>
 			{/if}
 			<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
 			{#if capabilities?.docker}
-				<a class="tab" class:active={page.url.pathname === '/docker'} href="docker">Docker</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/docker')} href="docker">Docker</a>
 			{/if}
-			<a class="tab" class:active={page.url.pathname === '/graphs'} href="graphs"
+			<a class="tab" class:active={page.url.pathname.endsWith('/graphs')} href="graphs"
 				>Historical Charts</a
 			>
 			{#if capabilities?.file_serving}
-				<a class="tab" class:active={page.url.pathname === '/files'} href="/files">Files</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
 			{/if}
 			<a
 				class="tab home-button"
-				href="/notif_methods"
+				href="notif_methods"
 				style="margin-left: auto;"
 				aria-label="Settings"
 			>

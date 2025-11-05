@@ -104,7 +104,7 @@ async fn auth_middleware(
 
             token.to_string()
         }
-        None => return Ok(Redirect::temporary("/auth").into_response()),
+        None => return Ok(Redirect::temporary("./auth").into_response()),
     };
 
     // Verify JWT token
@@ -114,7 +114,7 @@ async fn auth_middleware(
         &jsonwebtoken::Validation::default(),
     ) {
         Ok(data) => data.claims,
-        Err(_) => return Ok(Redirect::temporary("/auth").into_response()),
+        Err(_) => return Ok(Redirect::temporary("./auth").into_response()),
     };
 
     // Check if token is expired
@@ -123,7 +123,7 @@ async fn auth_middleware(
         .unwrap()
         .as_secs() as usize;
     if token_data.exp < now {
-        return Ok(Redirect::temporary("/auth").into_response());
+        return Ok(Redirect::temporary("./auth").into_response());
     }
 
     return Ok(next.run(request).await);
