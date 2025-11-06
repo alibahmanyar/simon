@@ -38,10 +38,14 @@
 		<nav class="tabs">
 			<a class="tab" class:active={page.url.pathname.endsWith('/')} href="./">Overview</a>
 			{#if capabilities?.disk}
-				<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage">Storage</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage"
+					>Storage</a
+				>
 			{/if}
 			{#if capabilities?.network}
-				<a class="tab" class:active={page.url.pathname.endsWith('/network')} href="network">Network</a>
+				<a class="tab" class:active={page.url.pathname.endsWith('/network')} href="network"
+					>Network</a
+				>
 			{/if}
 			<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
 			{#if capabilities?.docker}

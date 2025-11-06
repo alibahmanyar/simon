@@ -64,7 +64,17 @@ export const var2unit: { [key: string]: string } = {
 	tx: 'B'
 };
 
-let paths = ["/", "/alerts", "/docker", "/files", "/graphs", "/network", "/notif_methods", "/processes", "/storage"];
+let paths = [
+	'/',
+	'/alerts',
+	'/docker',
+	'/files',
+	'/graphs',
+	'/network',
+	'/notif_methods',
+	'/processes',
+	'/storage'
+];
 
 function getBaseUrl() {
 	let href = page.url.href;
@@ -78,7 +88,6 @@ function getBaseUrl() {
 	}
 	return href;
 }
-
 
 export function ws_url(s: string) {
 	return getBaseUrl().replaceAll('http', 'ws') + '/' + s;

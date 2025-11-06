@@ -281,3 +281,58 @@ option:focus {
 	transition: all 0s;
 	background-color: rgba(5, 37, 35, 0.6);
 }
+
+.template-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.template-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 1.25rem 0.75rem;
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 12px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	text-align: center;
+	min-height: 140px;
+}
+
+.template-card:hover {
+	background: rgba(255, 255, 255, 0.06);
+	border-color: rgba(74, 222, 128, 0.3);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+}
+
+.template-card.selected {
+	background: rgba(74, 222, 128, 0.1);
+	border-color: rgba(74, 222, 128, 0.5);
+	box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+}
+
+.template-icon {
+	font-size: 2rem;
+	margin-bottom: 0.5rem;
+	display: block;
+}
+
+.template-card h3 {
+	font-size: 0.95rem;
+	margin: 0.5rem 0 0.25rem 0;
+	color: #e1e1e3;
+	font-weight: 600;
+}
+
+.template-card .hint {
+	font-size: 0.75rem;
+	line-height: 1.3;
+	color: rgba(255, 255, 255, 0.5);
+	margin: 0;
+}

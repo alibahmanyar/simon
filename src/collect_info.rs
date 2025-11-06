@@ -143,7 +143,7 @@ pub fn detect_system_capabilities(config: Config) -> SystemCapabilities {
     }
 
     info!(
-        "System capabilities detected: CPU={}, Memory={}, Swap={}, LoadAvg={}, Network={}, Disk={}, Processes={}, Docker={}",
+        "System capabilities detected: CPU={}, Memory={}, Swap={}, LoadAvg={}, Network={}, Disk={}, Processes={}, Docker={}, File Serving={}",
         capabilities.cpu,
         capabilities.memory,
         capabilities.swap,
@@ -151,7 +151,8 @@ pub fn detect_system_capabilities(config: Config) -> SystemCapabilities {
         capabilities.network,
         capabilities.disk,
         capabilities.processes,
-        capabilities.docker
+        capabilities.docker,
+        capabilities.file_serving
     );
 
     capabilities
