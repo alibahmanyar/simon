@@ -16,6 +16,11 @@ on:
         description: 'Docker image tag (default: latest)'
         required: false
         default: 'latest'
+      scout:
+        description: 'Run Docker Scout for CVE scanning'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   docker:
@@ -103,7 +108,7 @@ jobs:
           push-to-registry: true
 
       - name: Docker Scout (optional)
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: ${{ github.event.inputs.scout == true }}
         uses: docker/scout-action@v1
         continue-on-error: true
         with:
