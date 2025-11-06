@@ -16,6 +16,14 @@ on:
         description: 'Docker image tag (default: latest)'
         required: false
         default: 'latest'
+      version:
+        description: 'Semver version (e.g., 1.2.3) - will create both X.Y.Z and X.Y tags'
+        required: false
+      as-latest:
+        description: 'Also tag as latest'
+        required: false
+        type: boolean
+        default: true
       scout:
         description: 'Run Docker Scout for CVE scanning'
         required: false
@@ -63,6 +71,15 @@ jobs:
           echo "Downloaded binaries:"
           ls -lh bin-releases/
 
+      - name: Generate semver tags
+        id: semver
+        if: ${{ github.event.inputs.version != '' }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          echo "full=$VERSION" >> $GITHUB_OUTPUT
+          echo "major_minor=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -71,12 +88,10 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/simon
             ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=${{ github.event.inputs.tag || 'latest' }}
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event.inputs.as-latest == 'true' }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.version == '' && github.event.inputs.tag != 'latest' && github.event.inputs.tag != '' }}
+            type=raw,value=${{ steps.semver.outputs.full }},enable=${{ github.event.inputs.version != '' }}
+            type=raw,value=${{ steps.semver.outputs.major_minor }},enable=${{ github.event.inputs.version != '' }}
 
       - name: Build and push Docker images
         id: push

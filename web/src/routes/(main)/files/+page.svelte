@@ -12,7 +12,7 @@
 		audioExtensions,
 		imageExtensions
 	} from '$lib/fileExtensions';
-	import { formatBytes } from '$lib/utils.svelte';
+	import { formatBytes, url } from '$lib/utils.svelte';
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/atom-one-dark.css';
 
@@ -139,15 +139,16 @@
 		return iconMap[ext] || '📄';
 	}
 
-	function getApiUrl(path: string, inline = false): string {
-		const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:30000/api';
+	function getFileUrl(path: string, inline = false): string {
 		const params = new URLSearchParams({ path });
 		if (inline) params.set('inline', 'true');
-		return `${baseUrl}/files/download?${params}`;
+		return import.meta.env.PROD
+			? url(`api/files/download?${params}`)
+			: `http://localhost:8000/api/files/download?${params}`;
 	}
 
 	async function downloadFile(path: string) {
-		window.open(getApiUrl(path), '_blank');
+		window.open(getFileUrl(path), '_blank');
 	}
 
 	function getFileExtension(filename: string): string {
@@ -171,7 +172,7 @@
 	async function viewFile(path: string, filename: string, size: number) {
 		// Open media files in new tab
 		if (isMediaFile(filename)) {
-			window.open(getApiUrl(path, true), '_blank');
+			window.open(getFileUrl(path, true), '_blank');
 			return;
 		}
 

@@ -109,22 +109,24 @@
 							>
 						</div>
 					</div>
-					<div style="height: 2rem;"></div>
-					<p class="card-title">Swap Usage</p>
-					<span class="usage">{swapPercentage}%</span>
-					<div class="bar">
-						<div class="bar-fill" style="width: {swapPercentage}%"></div>
-					</div>
-					<div class="info-grid-0">
-						<div class="info-item">
-							<span class="info-label">Swap Used/Total:</span>
-							<span id="memory-used" class="info-value"
-								>{formatBytes(gdata.data.mem.used_swap)}/{formatBytes(
-									gdata.data.mem.total_swap
-								)}</span
-							>
+					{#if capabilities.swap}
+						<div style="height: 2rem;"></div>
+						<p class="card-title">Swap Usage</p>
+						<span class="usage">{swapPercentage}%</span>
+						<div class="bar">
+							<div class="bar-fill" style="width: {swapPercentage}%"></div>
 						</div>
-					</div>
+						<div class="info-grid-0">
+							<div class="info-item">
+								<span class="info-label">Swap Used/Total:</span>
+								<span id="memory-used" class="info-value"
+									>{formatBytes(gdata.data.mem.used_swap)}/{formatBytes(
+										gdata.data.mem.total_swap
+									)}</span
+								>
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 
