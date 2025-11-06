@@ -1,0 +1,112 @@
+name: Docker Build and Publish
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: 'Release workflow run ID to download artifacts from'
+        required: false
+      tag:
+        description: 'Docker image tag (default: latest)'
+        required: false
+        default: 'latest'
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts from Release workflow
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: release.yml
+          name: simon-binaries
+          path: bin-releases/
+          run_id: ${{ github.event.inputs.run-id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded binaries:"
+          ls -lh bin-releases/
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/simon
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ github.event.inputs.tag || 'latest' }}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push Docker images
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/386
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Generate artifact attestation for Docker Hub
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: index.docker.io/${{ secrets.DOCKERHUB_USERNAME }}/simon
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation for GHCR
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Docker Scout (optional)
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        uses: docker/scout-action@v1
+        continue-on-error: true
+        with:
+          command: cves
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/simon:${{ github.event.inputs.tag || 'latest' }}
+          exit-code: false
