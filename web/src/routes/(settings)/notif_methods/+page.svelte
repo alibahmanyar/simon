@@ -700,7 +700,7 @@
 
 							<div class="dialog-actions">
 								<div
-									style="display: flex; align-items: center; flex-direction: row; gap: 1rem; max-width:50%;"
+									style="display: flex; align-items: center; flex-direction: row; gap: 1rem; max-width:45%;"
 								>
 									<button type="button" class="action-btn test" onclick={sendTestNotification}>
 										<svg

@@ -5,7 +5,7 @@
 	if (!page.url.href.endsWith('/')) {
 		const url = new URL(page.url.href);
 		url.pathname += '/';
-		window.history.replaceState({}, '', url.href);
+		window.location.href = url.href;
 	}
 
 	function goBack() {
