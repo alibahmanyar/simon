@@ -442,7 +442,7 @@ pub async fn delete_notif_method(
     };
 
     let mut methods: Vec<NotificationMethod> =
-        match db.get_kv_str("notification_sources").unwrap_or_default() {
+        match db.get_kv_str("notification_methods").unwrap_or_default() {
             Some(methods) => serde_json::from_str(&methods).unwrap(),
             None => Vec::new(),
         };
