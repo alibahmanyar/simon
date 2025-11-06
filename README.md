@@ -1,66 +1,79 @@
 # Simon
-<a href="https://opensource.org/licenses/MIT"
-    ><img
-      src="https://img.shields.io/badge/License-MIT-teal.svg"
-      alt="License-MIT"
-  /></a>
-<a href="https://hub.docker.com/r/alibahmanyar/simon"
-    ><img
-      src="https://img.shields.io/docker/pulls/alibahmanyar/simon.svg"
-      alt="Docker"
-  /></a>
 <p align="center">
+  <img src="https://github.com/user-attachments/assets/d9214875-d2e5-4a00-8688-e2d435409d7b" width="192" height="192" />
+</p>
 
-<img src="https://github.com/user-attachments/assets/d9214875-d2e5-4a00-8688-e2d435409d7b" width="192" height="192" />
-</p>
 <p align="center">
-A lightweight, web-based system monitor with alerts and Docker insights—all bundled into a single binary
+<a href="https://github.com/alibahmanyar/simon/releases"><img src="https://img.shields.io/github/v/release/alibahmanyar/simon?style=for-the-badge" alt="Latest Release"/></a>
+<a href="https://github.com/alibahmanyar/simon/actions"><img src="https://img.shields.io/github/actions/workflow/status/alibahmanyar/simon/release.yml?style=for-the-badge" alt="Build Status"/></a>
+<a href="https://hub.docker.com/r/alibahmanyar/simon"><img src="https://img.shields.io/docker/pulls/alibahmanyar/simon?style=for-the-badge" alt="Docker Pulls"/></a>
+<a href="https://github.com/alibahmanyar/simon/blob/main/LICENSE"><img src="https://img.shields.io/github/license/alibahmanyar/simon?style=for-the-badge" alt="License"/></a>
 </p>
+
+
+
+<p align="center">
+<strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and a built-in file browser.</strong>
+<br />
+Packaged as a single binary, perfect for embedded Linux systems and resource-constrained environments.
+</p>
+
 
 
 ## Table of Contents
 
-- [Features](#-features)
-- [Setup](#-setup)
-  - [Using Prebuilt Binaries](#using-prebuilt-binaries)
-  - [Using Docker](#using-docker)
-  - [Using Docker Compose](#using-docker-compose)
-  - [Running Behind a Reverse Proxy](#running-behind-a-reverse-proxy)
-  - [Authentication](#authentication)
-- [Configuration](#️-configuration)
-- [Notifications and Alerts](#-notifications-and-alerts)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
 - [Building from Source](#building-from-source)
 - [Screenshots](#screenshots)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
----
 
-## ✨ Features
 
-- **💻 System Monitoring**: Track CPU, memory, disk usage, disk I/O and network activity in real-time
-- **🌐 Web-Based UI**: A responsive interface accessible from any browser
-- **🐳 Docker Integration**: List containers, monitor resource usage, and view container logs
-- **🚨 Alerting System**: Configure thresholds and get notified when metrics cross set limits
-- **📦 Zero Dependencies**: Single binary deployment with no external requirements
-- **⚡ Low Overhead**: Minimal resource footprint
+## Features
 
----
+### 🪶 Lightweight
+- **Single binary** - No dependencies, just download and run
+- **Minimal resource footprint** - Perfect for embedded systems and low-power devices
 
-## 🔧 Setup
+### 📊 System Monitoring
+- **Real-time metrics** - Live tracking of CPU, memory, disk usage, disk I/O, and network activity
+- **Historical data** - Visualize trends with interactive charts
+- **Cross-platform** - Runs on Linux, Windows, Android, and FreeBSD
+- **Multi-architecture** - Native support for x86_64, i686, aarch64, and armv7
 
-### Using Prebuilt Binaries
+### 🐳 Docker Integration
+- **Container monitoring** - Track resource usage for all running containers
+- **Log viewer** - Access and search container logs directly from the web interface
+- **Real-time stats** - Per-container CPU and memory metrics
 
-The simplest way to install Simon is using prebuilt binaries:
+### 📁 File Browser
+- **Filesystem navigation** - Browse and explore directories through the web UI
+- **File viewer** - Preview file contents directly in your browser
+- **File downloads** - Secure file download capability
 
-Download the latest release for your platform from the [Releases](https://github.com/alibahmanyar/simon/releases) page.
+### 🔔 Alerting System
+- **Flexible alerts** - Set custom thresholds for CPU, memory, disk, and network
+- **Multiple channels** - Send notifications via Telegram, ntfy, or custom webhooks
+- **Templates** - Pre-configured notification templates for quick setup
+
+
+
+## Quick Start
+
+### Option 1: Prebuilt Binary
+
+Download the latest release for your platform from the [Releases](https://github.com/alibahmanyar/simon/releases) page and run:
 
 ```bash
 chmod +x simon
 ./simon
 ```
-Just run the binary and Simon will start monitoring! The web UI will be available at http://localhost:30000.
 
-### Using Docker
+The web interface will be available at `http://localhost:30000`
+
+### Option 2: Docker
 
 ```bash
 docker run -d \
@@ -73,21 +86,16 @@ docker run -d \
   alibahmanyar/simon
 ```
 
-### Using Docker Compose
-
-Create a `docker-compose.yml` file:
+### Option 3: Docker Compose
 
 ```yaml
 services:
   simon:
     image: alibahmanyar/simon
-    hostname: simon # Set container hostname (replace with your own)
+    hostname: simon
     ports:
       - "30000:30000"
     environment:
-      # Authentication configuration
-      # Bcrypt hash for 'secret', replace with your own hash or remove to disable authentication
-      # Note: Dollar signs need to be escaped with additional dollar signs in Docker Compose files
       SIMON_PASSWORD_HASH: "$$2a$$12$$nmCGsgJ3ovx76sc/J8Bcs.Vn235KLQK7Cze83Kzm36a1v59QKVOO."
     volumes:
       - /sys:/sys:ro
@@ -95,222 +103,137 @@ services:
       - /:/fs:ro
       - ./simon-data:/app/simon-data
 ```
-Then run:
-```bash
-docker-compose up -d
-```
-**Notes:**
 
-1. For accesing docker stats, the user account running Simon needs access to the Docker socket (`/var/run/docker.sock`). This can be achieved by:
-   - Using a user that belongs to the `docker` group
-   - Running as root
+Run with: `docker-compose up -d`
 
-2. For accurate system information, mount relevant filesystem paths:
-   - Mount `/etc/lsb-release` or similar OS identification files for correct OS detection
-   - Mount `/sys` for hardware, network and process information
-   - Mount filesystems you want to monitor (e.g., `/` as `/rootfs`) for disk usage statistics
+> **Note:** The default password for the example hash is `secret`. See [Authentication](docs/SETUP.md#authentication) for instructions on generating your own secure hash.
 
-3. The password hash should be provided correctly; pay attention to escaping special characters (like dollar sign) in the hash
+---
 
+## Documentation
 
+Comprehensive documentation is available in the `docs/` directory:
 
-### Running Behind a Reverse Proxy
+- **[Setup Guide](docs/SETUP.md)** - Installation methods, Docker configuration, reverse proxy setup, and authentication
+- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete list of configuration options and environment variables
+- **[Alerts and Notifications](docs/ALERTS.md)** - Setting up alerts, notification methods, and notification templates
 
-Simon can be deployed behind a reverse proxy like Nginx or Traefik:
+### Key Configuration Options
 
-#### Nginx Configuration Example
-```nginx
-...
-    
-    location / {
-        proxy_pass http://localhost:30000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-    }
-...
-```
+| Option | Environment Variable | Default | Description |
+|--------|---------------------|---------|-------------|
+| Port | `SIMON_PORT` | `30000` | Server port |
+| Update Interval | `SIMON_UPDATE_INTERVAL` | `2` | Metrics refresh interval (seconds) |
+| Password Hash | `SIMON_PASSWORD_HASH` | None | Bcrypt hash for authentication |
+| Database Path | `SIMON_DB_PATH` | `./simon-data/simon.db` | SQLite database location |
+| Serve Directories | `SIMON_SERVE_DIRS` | None | Comma-separated paths for file browser |
 
-#### Traefik Configuration Example
-
-The compose file below can be used; it will provide a reverse proxy with TLS support. You only need to provide the `HOST` and `ACME_MAIL` environment variables:
-
-```yaml
-services:
-  reverse-proxy:
-    image: traefik:v3.2
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - "./letsencrypt:/letsencrypt"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    command:
-      - --providers.docker.exposedByDefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entryPoints.web.http.redirections.entrypoint.scheme=https
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.websecure.asDefault=true 
-      - --entrypoints.websecure.http.tls.certresolver=myresolver
-      - --certificatesresolvers.myresolver.acme.email=${ACME_MAIL}
-      - --certificatesresolvers.myresolver.acme.tlschallenge=true
-      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-  
-  simon:
-    image: alibahmanyar/simon
-    hostname: simon # Set container hostname (replace with your own)
-    environment:
-      # Authentication configuration
-      # Bcrypt hash for 'secret', replace with your own hash or remove to disable authentication
-      # Note: Dollar signs need to be escaped with additional dollar signs in Docker Compose files
-      SIMON_PASSWORD_HASH: "$$2a$$12$$nmCGsgJ3ovx76sc/J8Bcs.Vn235KLQK7Cze83Kzm36a1v59QKVOO."
-    volumes:
-      - /sys:/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /:/fs:ro
-      - ./simon-data:/app/simon-data
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.simon.rule=Host(`${HOST}`)
-      - traefik.http.routers.simon.entrypoints=websecure
-      - traefik.http.routers.simon.tls.certresolver=myresolver
-      - traefik.http.services.simon.loadbalancer.server.port=30000
-```
-
-### Authentication
-
-Simon can be secured with password authentication:
-
-1. Generate a bcrypt hash of your password (many online tools available)
-2. Set the hash using the `SIMON_PASSWORD_HASH` environment variable or `--password-hash` flag
-3. Pay attnetion to the dollar signs and escape them if needed
-
-```bash
-# Using env var (in Docker Compose, dollar signs need to be escaped as $$)
-SIMON_PASSWORD_HASH='$2a$12$YOUR_BCRYPT_HASH' simon
-
-# Or using CLI flag
-simon --password-hash '$2a$12$YOUR_BCRYPT_HASH'
-```
-
-## ⚙️ Configuration
-
-Simon is configured through environment variables or command-line arguments:
-
-| Option | Environment Variable | CLI Flag | Default | Description |
-|--------|---------------------|----------|---------|-------------|
-| Address | `SIMON_ADDRESS` | `-a`, `--address` | `0.0.0.0` | Address to bind the server to |
-| Port | `SIMON_PORT` | `-p`, `--port` | `30000` | Port to bind the server to |
-| Update interval | `SIMON_UPDATE_INTERVAL` | `-T`, `--update-interval` | `2` | Metrics update interval in seconds (1-30 seconds) |
-| Password hash | `SIMON_PASSWORD_HASH` | `-H`, `--password-hash` | None | Bcrypt password hash for authentication |
-| Database path | `SIMON_DB_PATH` | `--db-path` | `./simon-data/simon.db` | Path to SQLite database |
-
-
-
-## 🚨 Notifications and Alerts
-
-Simon provides an alert system to notify you about critical system events.
-
-### Setting Up Notifications
-1. **Navigate to settings by clicking on the gear icon in the top navigation bar**
-2. **Add Notification Method**
-   - Name your notification method
-   - Enter webhook URL for receiving alerts
-   - Use `{notif_msg}` placeholder in url or request body to insert alert message
-
-2. **Configure Alert Conditions**
-   - Set time window (in minutes)
-   - Select resource category, name, and property to monitor
-   - Define condition and threshold value
-   - Toggle "Active" to enable/disable
-
-Alerts are triggered when conditions are met for the specified duration, sending formatted messages to your webhook endpoint. The system works with any service that accepts webhooks, including Discord, Telegram, Slack, etc.
+See the [Configuration Reference](docs/CONFIGURATION.md) for all available options.
 
 
 ## Building from Source
 
-Simon consists of a Rust backend and a web frontend. Here's how to build it from source:
+Simon consists of a Rust backend and a Svelte-based web frontend.
+
+### Prerequisites
+
+- [Rust toolchain](https://rustup.rs/) (latest stable)
+- [Bun](https://bun.sh/docs/installation) (for building the web frontend)
+
+### Build Steps
 
 ```bash
-# Prerequisites: 
-# - Rust toolchain (https://rustup.rs/)
-# - Bun (https://bun.sh/docs/installation)
-
 # Clone the repository
 git clone https://github.com/alibahmanyar/simon.git
 cd simon
 
-# Build the web frontend first and then compile the Rust application
+# Setup and build web frontend
 make web-setup
 make web
+
+# Build Simon
 make release
 ```
 
 ## Screenshots
-  <p align="center">
-<img src="https://github.com/user-attachments/assets/2f22c4db-ffe6-49d1-a936-e683a88e7c4c" alt="">
-<figcaption>Main page</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/43c5d88d-1f86-4abe-b152-a08879cde52b" alt="">
-<figcaption>Storage info</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/bc358c99-0c89-4b65-8bef-fe852893546d" alt="">
-<figcaption>Network info</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/31c8910d-d2de-440f-87e4-32170a9d00b1" alt="">
-<figcaption>Docker insights</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/778ea4de-638e-451e-8015-0149509c74e9" alt="">
-<figcaption>Historical charts</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/77331c06-8a11-4735-b936-ae4d533c7dee" alt="">
-<figcaption>Notification methods overview</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/2b5a86ee-8292-417f-9410-f652575e5cad" alt="">
-<figcaption>Defining new notification</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/7a412432-ed84-4332-91e7-c2d9913aa3a6" alt="">
-<figcaption>Defining new alert</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/2a08a008-eaa3-4a6f-8816-d7d859989fd2" alt="">
-<figcaption>Alerts overview</figcaption>
-<br><br><br>
-<img src="https://github.com/user-attachments/assets/f4aba877-0f75-49b1-b1cd-630d6f50c064" alt="">
-<figcaption>Mobile views</figcaption>
-  </p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2f22c4db-ffe6-49d1-a936-e683a88e7c4c" alt="Main Dashboard">
+  <br><em>Real-time system metrics overview</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/43c5d88d-1f86-4abe-b152-a08879cde52b" alt="Storage Information">
+  <br><em>Detailed storage and filesystem monitoring</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/bc358c99-0c89-4b65-8bef-fe852893546d" alt="Network Statistics">
+  <br><em>Network interface statistics and throughput</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/31c8910d-d2de-440f-87e4-32170a9d00b1" alt="Docker Integration">
+  <br><em>Container management and resource monitoring</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/778ea4de-638e-451e-8015-0149509c74e9" alt="Historical Charts">
+  <br><em>Historical data visualization</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/77331c06-8a11-4735-b936-ae4d533c7dee" alt="Notification Methods">
+  <br><em>Notification method configuration with templates</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2b5a86ee-8292-417f-9410-f652575e5cad" alt="Adding Notification">
+  <br><em>Creating new notification methods</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/7a412432-ed84-4332-91e7-c2d9913aa3a6" alt="Alert Configuration">
+  <br><em>Configuring alert rules and thresholds</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2a08a008-eaa3-4a6f-8816-d7d859989fd2" alt="Alerts Overview">
+  <br><em>Managing active alerts</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f4aba877-0f75-49b1-b1cd-630d6f50c064" alt="Mobile View">
+  <br><em>Responsive mobile interface</em>
+</p>
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+
 ## Acknowledgments
 
-This project utilizes several amazing open-source libraries and tools:
+Simon is built on top of excellent open-source projects:
 
-### Rust Dependencies
-- [axum](https://github.com/tokio-rs/axum)
-- [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
-- [bollard](https://github.com/fussybeaver/bollard)
-- [tokio](https://tokio.rs/)
-- [clap](https://github.com/clap-rs/clap)
-- [serde](https://serde.rs/)
+**Backend (Rust)**
+- [axum](https://github.com/tokio-rs/axum) - Web framework
+- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) - System information
+- [bollard](https://github.com/fussybeaver/bollard) - Docker API client
+- [tokio](https://tokio.rs/) - Async runtime
+- [rusqlite](https://github.com/rusqlite/rusqlite) - SQLite interface
 
-### Web Frontend
-- [Svelte](https://svelte.dev/)
-- [Chart.js](https://www.chartjs.org/)
-- [Bun](https://bun.sh/)
+**Frontend**
+- [Svelte](https://svelte.dev/) - UI framework
+- [SvelteKit](https://kit.svelte.dev/) - Application framework
+- [Chart.js](https://www.chartjs.org/) - Data visualization
+- [Bun](https://bun.sh/) - Build tooling
 
 Thank you to all the contributors and maintainers of these projects!
 
 ---
 
-
-Happy monitoring!
+**Happy Monitoring!**
