@@ -47,36 +47,6 @@ jobs:
       run: cd web && bun audit || true
       continue-on-error: true
 
-  rust-check:
-    name: Rust Checks
-    runs-on: ubuntu-latest
-    needs: security-audit
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Setup Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
-        
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@v2
-      
-    - name: Check code formatting
-      run: cargo fmt -- --check
-      
-    - name: Run Clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-      
-    - name: Run tests
-      run: make test
-      
-    - name: Check build
-      run: cargo check --release
-
   web-check:
     name: Web Checks (Svelte/Bun)
     runs-on: ubuntu-latest
@@ -109,7 +79,6 @@ jobs:
   web-build:
     name: Web Build (Svelte)
     runs-on: ubuntu-latest
-    needs: web-check
     
     steps:
     - name: Checkout repository
@@ -129,6 +98,36 @@ jobs:
         name: simon-web-build
         path: web/build
         retention-days: 7
+
+  rust-check:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    needs: web-build
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      
+    - name: Check code formatting
+      run: cargo fmt -- --check
+      
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: Run tests
+      run: make test
+      
+    - name: Check build
+      run: cargo check --release
 
   build-all-platforms:
     name: Build All Platforms
