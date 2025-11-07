@@ -10,7 +10,8 @@
 		languageMap,
 		videoExtensions,
 		audioExtensions,
-		imageExtensions
+		imageExtensions,
+		documentExtensions
 	} from '$lib/fileExtensions';
 	import { formatBytes, url } from '$lib/utils.svelte';
 	import hljs from 'highlight.js';
@@ -150,6 +151,11 @@
 	}
 
 	function getFileExtension(filename: string): string {
+		if (filename.startsWith('.'))
+			// Hidden files (dot files)
+			filename = filename.slice(1);
+		if (!filename.includes('.')) return '';
+
 		return filename.split('.').pop()?.toLowerCase() || '';
 	}
 
@@ -163,7 +169,8 @@
 		return (
 			videoExtensions.includes(ext) ||
 			audioExtensions.includes(ext) ||
-			imageExtensions.includes(ext)
+			imageExtensions.includes(ext) ||
+			documentExtensions.includes(ext)
 		);
 	}
 

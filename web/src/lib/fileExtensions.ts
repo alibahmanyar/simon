@@ -700,3 +700,5 @@ export const imageExtensions = [
 	'heic',
 	'heif'
 ];
+
+export const documentExtensions = ['pdf'];
