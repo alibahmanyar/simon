@@ -42,7 +42,7 @@
 
 	// Filter and sort state
 	let filterText = $state('');
-	let sortBy = $state<'name' | 'size' | 'modified' | 'created'>('name');
+	let sortBy = $state<'name' | 'size' | 'modified'>('name');
 	let sortDirection = $state<'asc' | 'desc'>('asc');
 
 	// Derived filtered and sorted entries
@@ -356,13 +356,6 @@
 							>
 								Modified {sortBy === 'modified' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
 							</button>
-							<button
-								class="header-cell header-sort header-created"
-								onclick={() => toggleSort('created')}
-								aria-label="Sort by creation date"
-							>
-								Created {sortBy === 'created' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-							</button>
 							<button class="header-cell header-actions" disabled aria-label="Actions"> </button>
 						</div>
 						{#each filteredEntries as entry (entry.name)}
@@ -394,7 +387,6 @@
 									<span class="file-permissions">{entry.permissions}</span>
 									<span class="file-size">{entry.is_dir ? '-' : formatBytes(entry.size)}</span>
 									<span class="file-modified">{formatDate(entry.modified)}</span>
-									<span class="file-created">{formatDate(entry.created)}</span>
 									<span class="file-actions"></span>
 								</button>
 

@@ -242,7 +242,6 @@ pub struct FileEntry {
     pub is_dir: bool,
     pub size: u64,
     pub modified: u64,
-    pub created: u64,
     pub permissions: String,
 }
 

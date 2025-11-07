@@ -121,7 +121,7 @@
 
 .file-header {
 	display: grid;
-	grid-template-columns: 1fr 5fr 2fr 2fr 3fr 3fr 1fr;
+	grid-template-columns: 1fr 5fr 2fr 2fr 3fr 1fr;
 	align-items: center;
 	gap: 1rem;
 	padding: 0.5rem 0;
@@ -148,7 +148,7 @@
 
 .file-row {
 	display: grid;
-	grid-template-columns: 1fr 5fr 2fr 2fr 3fr 3fr 1fr;
+	grid-template-columns: 1fr 5fr 2fr 2fr 3fr 1fr;
 	align-items: center;
 	gap: 1rem;
 	background: #2a2e39;
@@ -206,8 +206,7 @@
 	padding: 0.75rem 0;
 }
 
-.file-modified,
-.file-created {
+.file-modified {
 	color: #9ca3af;
 	font-size: 0.8rem;
 	padding: 0.75rem 0;
@@ -388,7 +387,7 @@
 @media (max-width: 1400px) {
 	.file-header,
 	.file-row {
-		grid-template-columns: 1fr 5fr 2fr 2fr 3fr 3fr 1fr;
+		grid-template-columns: 1fr 5fr 2fr 2fr 3fr 1fr;
 	}
 }
 
@@ -397,11 +396,6 @@
 	.file-row {
 		grid-template-columns: 1fr 5fr 2fr 2fr 1fr;
 		gap: 0.75rem;
-	}
-
-	.file-created,
-	.header-created {
-		display: none;
 	}
 }
 

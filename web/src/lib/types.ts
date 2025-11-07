@@ -167,7 +167,6 @@ export interface FileEntry {
 	is_dir: boolean;
 	size: number;
 	modified: number;
-	created: number;
 	permissions: string;
 }
 

@@ -694,12 +694,6 @@ pub async fn browse_directory(
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        let created = metadata
-            .created()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
 
         // Get permissions string (Unix-style)
         #[cfg(unix)]
@@ -732,7 +726,6 @@ pub async fn browse_directory(
             is_dir,
             size,
             modified,
-            created,
             permissions,
         });
     }
