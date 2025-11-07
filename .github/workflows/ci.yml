@@ -1,0 +1,178 @@
+name: CI
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  actions: read
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+      
+    - name: Run Rust security audit
+      run: cargo audit
+      
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        
+    - name: Install web dependencies
+      run: cd web && bun install
+      
+    - name: Run npm security audit
+      run: cd web && bun audit || true
+      continue-on-error: true
+
+  rust-check:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    needs: security-audit
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      
+    - name: Check code formatting
+      run: cargo fmt -- --check
+      
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: Run tests
+      run: make test
+      
+    - name: Check build
+      run: cargo check --release
+
+  web-check:
+    name: Web Checks (Svelte/Bun)
+    runs-on: ubuntu-latest
+    needs: security-audit
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        
+    - name: Setup web dependencies
+      run: make web-setup
+      
+    - name: Run type checking
+      run: cd web && bun run check
+      
+    - name: Run linter
+      run: cd web && bun run lint
+      
+    - name: Run tests
+      run: cd web && bun run test
+      
+    - name: Check formatting
+      run: cd web && bun run format -- --check
+
+  web-build:
+    name: Web Build (Svelte)
+    runs-on: ubuntu-latest
+    needs: web-check
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        
+    - name: Build web application
+      run: make web-setup && make web
+      
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: simon-web-build
+        path: web/build
+        retention-days: 7
+
+  build-all-platforms:
+    name: Build All Platforms
+    runs-on: ubuntu-latest
+    needs: [rust-check, web-build]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      
+    - name: Install cross-compilation tools
+      run: make install-cross
+      
+    - name: Install UPX
+      run: make install-upx
+      
+    - name: Build web frontend
+      run: make web-setup && make web
+      
+    - name: Build for all platforms
+      run: make ci-release
+      
+    - name: Compress binaries
+      run: make upx-compress
+      
+    - name: List built artifacts
+      run: ls -lh bin-releases/
+      
+    - name: Upload all platform binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: simon-all-platforms
+        path: bin-releases/*
+        retention-days: 7
