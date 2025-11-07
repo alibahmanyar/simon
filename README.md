@@ -5,7 +5,7 @@
 
 <p align="center">
 <a href="https://github.com/alibahmanyar/simon/releases"><img src="https://img.shields.io/github/v/release/alibahmanyar/simon?style=for-the-badge" alt="Latest Release"/></a>
-<a href="https://github.com/alibahmanyar/simon/actions"><img src="https://img.shields.io/github/actions/workflow/status/alibahmanyar/simon/release.yml?style=for-the-badge" alt="Build Status"/></a>
+<a href="https://github.com/alibahmanyar/simon/actions"><img src="https://img.shields.io/github/actions/workflow/status/alibahmanyar/simon/ci.yml?style=for-the-badge" alt="Build Status"/></a>
 <a href="https://hub.docker.com/r/alibahmanyar/simon"><img src="https://img.shields.io/docker/pulls/alibahmanyar/simon?style=for-the-badge" alt="Docker Pulls"/></a>
 <a href="https://github.com/alibahmanyar/simon/blob/main/LICENSE"><img src="https://img.shields.io/github/license/alibahmanyar/simon?style=for-the-badge" alt="License"/></a>
 </p>
