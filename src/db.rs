@@ -371,11 +371,9 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                 let mut rx_rate = 0.0;
                 let mut tx_rate = 0.0;
                 // check if last info is initialized
-                if last_info.is_some() && last_timestamp.is_some() {
+                if let (Some(last_info), Some(last_timestamp)) = (&last_info, last_timestamp) {
                     // Find the matching interface in last_info
                     let last_interface = last_info
-                        .as_ref()
-                        .unwrap()
                         .net
                         .interfaces
                         .iter()
@@ -383,7 +381,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
 
                     if let Some(last_iface) = last_interface {
                         // Calculate time difference in seconds
-                        let elapsed_secs = timestamp as f64 - last_timestamp.unwrap() as f64;
+                        let elapsed_secs = timestamp as f64 - last_timestamp as f64;
 
                         // Calculate rates
                         rx_rate = if interface.rx > last_iface.rx {
@@ -418,11 +416,9 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                 let mut read_rate = 0.0;
                 let mut write_rate = 0.0;
                 // check if last info is initialized
-                if last_info.is_some() && last_timestamp.is_some() {
+                if let (Some(last_info), Some(last_timestamp)) = (&last_info, last_timestamp) {
                     // Find the matching disk in last_info
                     let last_disk = last_info
-                        .as_ref()
-                        .unwrap()
                         .disk
                         .disks
                         .iter()
@@ -430,7 +426,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
 
                     if let Some(last_disk) = last_disk {
                         // Calculate time difference in seconds
-                        let elapsed_secs = timestamp as f64 - last_timestamp.unwrap() as f64;
+                        let elapsed_secs = timestamp as f64 - last_timestamp as f64;
 
                         // Calculate rates
                         read_rate = if disk.io[2] > last_disk.io[2] {
@@ -540,7 +536,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                 );
 
                 // Check if it's an hour boundary
-                if (timestamp / 60) % 60 == 0 {
+                if (timestamp / 60).is_multiple_of(60) {
                     // Aggregate minute_metrics for the last hour
                     let _ = conn.execute(
                         "INSERT INTO general_h
@@ -612,7 +608,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         params![timestamp - 3600, timestamp],
                     );
                     // Check if it's a day boundary (midnight)
-                    if (timestamp / 3600) % 24 == 0 {
+                    if (timestamp / 3600).is_multiple_of(24) {
                         // Aggregate hour_metrics for the last day
                         let _ = conn.execute(
                             "INSERT INTO general_d

@@ -54,13 +54,13 @@ pub fn parse_config() -> Config {
     let mut config = Config::parse();
 
     // Ensure database directory exists
-    if let Some(parent) = std::path::Path::new(&config.db_path).parent() {
-        if !parent.exists() {
-            info!("Creating directory for database at: {}", parent.display());
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                error!("Failed to create database directory: {}", e);
-                std::process::exit(1);
-            }
+    if let Some(parent) = std::path::Path::new(&config.db_path).parent()
+        && !parent.exists()
+    {
+        info!("Creating directory for database at: {}", parent.display());
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            error!("Failed to create database directory: {}", e);
+            std::process::exit(1);
         }
     }
 

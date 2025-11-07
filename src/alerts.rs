@@ -79,14 +79,11 @@ pub async fn check_alerts(db_path: &str) {
 
                     // Send notifications to all configured methods for this alert
                     for method_id in &alert.notif_methods {
-                        if let Some(method) = method_map.get(method_id) {
-                            if method.enabled {
-                                if let Err(e) =
-                                    send_notification(method, &notification_message).await
-                                {
-                                    error!("Failed to send notification: {}", e);
-                                }
-                            }
+                        if let Some(method) = method_map.get(method_id)
+                            && method.enabled
+                            && let Err(e) = send_notification(method, &notification_message).await
+                        {
+                            error!("Failed to send notification: {}", e);
                         }
                     }
                 } else {
@@ -96,14 +93,11 @@ pub async fn check_alerts(db_path: &str) {
 
                     // Send notifications to all configured methods for this alert
                     for method_id in &alert.notif_methods {
-                        if let Some(method) = method_map.get(method_id) {
-                            if method.enabled {
-                                if let Err(e) =
-                                    send_notification(method, &notification_message).await
-                                {
-                                    error!("Failed to send notification: {}", e);
-                                }
-                            }
+                        if let Some(method) = method_map.get(method_id)
+                            && method.enabled
+                            && let Err(e) = send_notification(method, &notification_message).await
+                        {
+                            error!("Failed to send notification: {}", e);
                         }
                     }
                 }

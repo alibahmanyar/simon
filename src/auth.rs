@@ -10,7 +10,6 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Redirect, Response},
 };
-use bcrypt;
 
 use crate::config::Config;
 use axum::extract::Form;
@@ -73,10 +72,10 @@ pub async fn auth_handler(
             .unwrap();
     }
 
-    return Response::builder()
+    Response::builder()
         .status(StatusCode::UNAUTHORIZED)
         .body("Unauthorized".to_string())
-        .unwrap();
+        .unwrap()
 }
 
 // Middleware function to check authentication
@@ -126,7 +125,7 @@ async fn auth_middleware(
         return Ok(Redirect::temporary("./auth").into_response());
     }
 
-    return Ok(next.run(request).await);
+    Ok(next.run(request).await)
 }
 
 pub fn apply_auth_middleware(app: Router, config: Config) -> Router {

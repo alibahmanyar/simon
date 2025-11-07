@@ -158,7 +158,7 @@ async fn main() {
         .fallback(fallback_handler)
         .with_state((shared_sys, config.clone()));
 
-    if let Some(_) = &config.password_hash {
+    if config.password_hash.is_some() {
         app = auth::apply_auth_middleware(app, config.clone());
         info!("Running with authentication");
     } else {

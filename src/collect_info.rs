@@ -19,7 +19,7 @@ pub fn detect_system_capabilities(config: Config) -> SystemCapabilities {
         disk: false,
         processes: false,
         docker: false,
-        file_serving: config.serve_dirs.is_empty() == false,
+        file_serving: !config.serve_dirs.is_empty(),
     };
 
     // Test CPU detection
@@ -416,7 +416,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
                 ip: port.ip.clone(),
                 priv_port: port.private_port,
                 pub_port: port.public_port,
-                protocol: port.typ.clone().unwrap().to_string(),
+                protocol: port.typ.unwrap().to_string(),
             })
             .collect();
 

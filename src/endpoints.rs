@@ -18,7 +18,6 @@ use futures::StreamExt;
 use log::{debug, error, info, warn};
 use models::HistoricalQueryOptions;
 use rust_embed::Embed;
-use serde_json;
 use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -40,10 +39,10 @@ fn validate_path_access(path: &str, allowed_dirs: &[String]) -> Option<PathBuf> 
     let canonical_path = path_buf.canonicalize().ok()?;
 
     for serve_dir in allowed_dirs {
-        if let Ok(serve_path) = PathBuf::from(serve_dir).canonicalize() {
-            if canonical_path.starts_with(&serve_path) {
-                return Some(canonical_path);
-            }
+        if let Ok(serve_path) = PathBuf::from(serve_dir).canonicalize()
+            && canonical_path.starts_with(&serve_path)
+        {
+            return Some(canonical_path);
         }
     }
 
@@ -76,17 +75,16 @@ pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
         cache_control = "private, max-age=3600";
     }
 
-    match Asset::get(&path) {
+    match Asset::get(path) {
         Some(content) => {
             let etag = hex::encode(content.metadata.sha256_hash());
 
             // Check If-None-Match header
-            if let Some(if_none_match) = request.headers().get("If-None-Match") {
-                if let Ok(if_none_match_str) = if_none_match.to_str() {
-                    if if_none_match_str == etag {
-                        return StatusCode::NOT_MODIFIED.into_response();
-                    }
-                }
+            if let Some(if_none_match) = request.headers().get("If-None-Match")
+                && let Ok(if_none_match_str) = if_none_match.to_str()
+                && if_none_match_str == etag
+            {
+                return StatusCode::NOT_MODIFIED.into_response();
             }
 
             (
