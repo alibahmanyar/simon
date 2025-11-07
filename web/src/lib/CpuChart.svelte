@@ -61,7 +61,7 @@
 					},
 					ticks: {
 						color: '#e1e1e3',
-						callback: function (_: any, index: number) {
+						callback: function (_value: unknown, index: number) {
 							if (timestamps_padded[index] === 0) return '';
 							return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
 						}
@@ -88,7 +88,7 @@
 			let data_padded = Array(maxDataPoints - data.length)
 				.fill(0)
 				.concat(data);
-			let cores_padded = tcores.map((core: any) =>
+			let cores_padded = tcores.map((core: number[]) =>
 				Array(maxDataPoints - core.length)
 					.fill(0)
 					.concat(core)
@@ -97,7 +97,7 @@
 			if (!initialized) {
 				initialized = true;
 
-				cores_padded.forEach((_: any, i: number) => {
+				cores_padded.forEach((_core: unknown, i: number) => {
 					const color = `hsl(${(i * 360) / cores_padded.length + 200}, 70%, 60%)`;
 					chartData.datasets.push(getDataset(`Core ${i + 1}`, color, '#222', false));
 				});
@@ -105,7 +105,7 @@
 				chart = new chartjs(chartCanvas, chartConfig);
 			} else {
 				chart.data.datasets[0].data = data_padded;
-				cores_padded.forEach((core: any, i: number) => {
+				cores_padded.forEach((core: number[], i: number) => {
 					chart.data.datasets[i + 1].data = core;
 					chart.data.datasets[i + 1].hidden = !show_cores;
 				});

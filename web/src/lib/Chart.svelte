@@ -64,7 +64,7 @@
 					},
 					ticks: {
 						color: '#e1e1e3',
-						callback: function (_: any, index: number) {
+						callback: function (_value: unknown, index: number) {
 							if (timestamps_padded[index] === 0) return '';
 							return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
 						}
@@ -96,7 +96,7 @@
 				chart = new chartjs(chartCanvas, chartConfig);
 			} else {
 				chart.data.datasets[0].data = data;
-				data_padded.forEach((core: any, i: number) => {
+				data_padded.forEach((_core: unknown, i: number) => {
 					chart.data.datasets[i].data = data_padded[i];
 				});
 				chart.update();

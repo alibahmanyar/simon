@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { formatBytes, formatBytesPerSecond } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
-	import Chart from '$lib/Chart.svelte';
 
 	// Network data tracking
 	let networkInterfaces: { [key: string]: any } = {};
@@ -65,11 +64,6 @@
 			sortedInterfaces = [...interfaces].sort((a, b) => a.name.localeCompare(b.name));
 		}
 	});
-
-	// Handle interface selection
-	function handleInterfaceSelect(e: any) {
-		selectedInterface = e.target.value;
-	}
 </script>
 
 {#if gdata.data}
@@ -86,7 +80,7 @@
 		</div>
 		<div id="network-interfaces">
 			{#if sortedInterfaces.length > 0}
-				{#each sortedInterfaces as iface}
+				{#each sortedInterfaces as iface (iface.name)}
 					<div class="network-interface">
 						<p class="card-title">{iface.name}</p>
 						<div class="info-grid-0">

@@ -64,7 +64,7 @@ export const var2unit: { [key: string]: string } = {
 	tx: 'B'
 };
 
-let paths = [
+const paths = [
 	'/',
 	'/alerts',
 	'/docker',
@@ -87,7 +87,7 @@ function getBaseUrl() {
 	if (href[href.length - 1] === '/') {
 		href = href.slice(0, -1);
 	}
-	for (let path of paths) {
+	for (const path of paths) {
 		if (href.endsWith(path)) {
 			return href.slice(0, -path.length);
 		}

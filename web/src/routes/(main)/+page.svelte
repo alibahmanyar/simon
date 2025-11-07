@@ -55,7 +55,7 @@
 					</label>
 					{#if show_cores}
 						<div id="cores" class="core-grid" transition:slide>
-							{#each gdata.data.cpu.usage as usage, i}
+							{#each gdata.data.cpu.usage as usage, i (i)}
 								<div class="core">
 									<div class="core-item">
 										<p>Core {i + 1}</p>

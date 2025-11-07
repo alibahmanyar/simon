@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { formatUptime, formatBytes } from '$lib/utils.svelte';
+	import { formatBytes } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
-	import Chart from '$lib/Chart.svelte';
 	import type { Disk } from '$lib/types';
 
-	let disks = $state([] as Disk[] | undefined);
-	$effect(() => {
-		disks = gdata.data?.disk.disks.filter((disk) => !disk.mount_point.includes('/boot'));
-	});
+	const disks = $derived(
+		gdata.data?.disk.disks.filter((disk) => !disk.mount_point.includes('/boot')) as
+			| Disk[]
+			| undefined
+	);
 </script>
 
 {#if disks && disks.length > 0}
 	<div class="card">
 		<div id="disk-info" class="info-grid-1">
 			{#if disks.length > 0}
-				{#each disks as disk, index}
+				{#each disks as disk (disk.mount_point)}
 					{@const usedPercentage =
 						disk.total_space > 0 ? ((1 - disk.free_space / disk.total_space) * 100).toFixed(1) : 0}
 

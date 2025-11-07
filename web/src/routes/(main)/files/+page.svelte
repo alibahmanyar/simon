@@ -141,7 +141,7 @@
 	}
 
 	function getFileUrl(path: string, inline = false): string {
-		const params = new URLSearchParams({ path });
+		const params = new window.URLSearchParams({ path });
 		if (inline) params.set('inline', 'true');
 		return url(`api/files/download?${params}`);
 	}
@@ -266,7 +266,7 @@
 			<div class="card">
 				<p class="card-title">Available Directories</p>
 				<div class="file-list">
-					{#each serveDirs as dir}
+					{#each serveDirs as dir (dir)}
 						<button
 							class="file-row directory-row"
 							onclick={() => browseDir(dir, dir)}
@@ -291,7 +291,7 @@
 						>
 							{currentServeDir}
 						</button>
-						{#each pathSegments as segment, i}
+						{#each pathSegments as segment, i (i)}
 							<span class="breadcrumb-separator" aria-hidden="true">/</span>
 							<button
 								class="breadcrumb"

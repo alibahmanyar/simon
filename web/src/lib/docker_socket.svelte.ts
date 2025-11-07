@@ -68,19 +68,19 @@ export function open_ws() {
 		return;
 	}
 
-	d_ws.onopen = function (event) {
+	d_ws.onopen = function () {
 		ddata.status = wsStatus.WAITING;
 		//console.log("WebSocket opened:", event);
 		reconnectAttempt = 0;
 	};
 
-	d_ws.onerror = function (event) {
+	d_ws.onerror = function () {
 		ddata.status = wsStatus.ERROR;
-		console.error('WebSocket error observed:', event);
+		console.error('WebSocket error observed');
 		// We'll let onclose handle the reconnection
 	};
 
-	d_ws.onclose = function (event) {
+	d_ws.onclose = function () {
 		ddata.status = wsStatus.DISCONNECTED;
 		//console.log("WebSocket closed:", event);
 		scheduleReconnect();
