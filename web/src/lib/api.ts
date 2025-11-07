@@ -18,8 +18,7 @@ async function apiFetch<T>(
 	options?: RequestInit
 ): Promise<{ success: true; data: T } | { success: false; error: string }> {
 	try {
-		const addr = import.meta.env.PROD ? url(endpoint) : `http://localhost:30000/${endpoint}`;
-		const response = await fetch(addr, options);
+		const response = await fetch(url(endpoint), options);
 
 		if (!response.ok) {
 			return {
@@ -141,11 +140,7 @@ export async function getContainerLogs(
 	containerId: string
 ): Promise<{ success: true; data: string[] } | { success: false; error: string }> {
 	try {
-		const addr = import.meta.env.PROD
-			? url(`container_logs/${containerId}`)
-			: `http://localhost:30000/container_logs/${containerId}`;
-
-		const response = await fetch(addr);
+		const response = await fetch(url(`container_logs/${containerId}`));
 
 		if (!response.ok) {
 			return {
@@ -190,11 +185,7 @@ export async function getFileContent(
 	path: string
 ): Promise<{ success: true; data: string } | { success: false; error: string }> {
 	try {
-		const addr = import.meta.env.PROD
-			? `/api/files/content?path=${encodeURIComponent(path)}`
-			: `http://localhost:30000/api/files/content?path=${encodeURIComponent(path)}`;
-
-		const response = await fetch(addr);
+		const response = await fetch(url(`api/files/content?path=${encodeURIComponent(path)}`));
 
 		if (!response.ok) {
 			return {

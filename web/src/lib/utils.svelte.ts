@@ -77,6 +77,12 @@ let paths = [
 ];
 
 function getBaseUrl() {
+	// In development, use localhost with the dev server port
+	if (import.meta.env.DEV) {
+		return 'http://localhost:30000';
+	}
+
+	// In production, extract base URL from current page
 	let href = page.url.href;
 	if (href[href.length - 1] === '/') {
 		href = href.slice(0, -1);

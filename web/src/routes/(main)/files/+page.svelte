@@ -142,9 +142,7 @@
 	function getFileUrl(path: string, inline = false): string {
 		const params = new URLSearchParams({ path });
 		if (inline) params.set('inline', 'true');
-		return import.meta.env.PROD
-			? url(`api/files/download?${params}`)
-			: `http://localhost:8000/api/files/download?${params}`;
+		return url(`api/files/download?${params}`);
 	}
 
 	async function downloadFile(path: string) {
