@@ -154,7 +154,7 @@
 		if (filename.startsWith('.'))
 			// Hidden files (dot files)
 			filename = filename.slice(1);
-		if (!filename.includes('.')) return '';
+		if (!filename.includes('.')) return filename;
 
 		return filename.split('.').pop()?.toLowerCase() || '';
 	}
