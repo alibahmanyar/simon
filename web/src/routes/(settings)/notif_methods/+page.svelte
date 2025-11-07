@@ -172,7 +172,7 @@
 				showBodyTextArea = true;
 				break;
 
-			case 'matrix':
+			case 'matrix': {
 				webhookForm.name = 'Matrix Notification';
 				const txnId = Date.now();
 				webhookForm.config.WebHook.url = `${matrixHomeserver}/_matrix/client/v3/rooms/${encodeURIComponent(matrixRoomId)}/send/m.room.message/${txnId}?access_token=${matrixAccessToken}`;
@@ -181,7 +181,7 @@
 				headersString = 'Content-Type: application/json';
 				showBodyTextArea = true;
 				break;
-
+			}
 			case 'custom':
 			default:
 				// Keep existing form values for custom
