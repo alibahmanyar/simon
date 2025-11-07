@@ -433,6 +433,7 @@
 									class:selected={selectedTemplate === template.id}
 									onclick={() => (selectedTemplate = template.id)}
 								>
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 									<span class="template-icon">{@html template.iconSvg}</span>
 									<h3>{template.name}</h3>
 									<p class="hint">{template.description}</p>

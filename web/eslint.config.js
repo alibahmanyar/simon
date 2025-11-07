@@ -8,13 +8,12 @@ import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
-export default ts.config(
+export default [
 	includeIgnoreFile(gitignorePath),
 	js.configs.recommended,
 	...ts.configs.recommended,
-	...svelte.configs.recommended,
+	...svelte.configs['flat/recommended'],
 	prettier,
-	...svelte.configs.prettier,
 	{
 		languageOptions: {
 			globals: {
@@ -34,6 +33,11 @@ export default ts.config(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			'svelte/prefer-svelte-reactivity': 'off',
+			'svelte/no-navigation-without-resolve': 'off',
+			'@typescript-eslint/no-explicit-any': 'warn'
 		}
 	}
-);
+];

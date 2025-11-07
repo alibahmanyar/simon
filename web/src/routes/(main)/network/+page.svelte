@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { formatBytes, formatBytesPerSecond } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
+	import type { NetworkInterface, NetworkStats } from '$lib/types';
 
 	// Network data tracking
-	let networkInterfaces: { [key: string]: any } = {};
-	let previousNetworkStats: { [key: string]: any } = {};
-	let selectedInterface: string = $state('');
-	let sortedInterfaces: any[] = $state([]);
+	let networkInterfaces: { [key: string]: NetworkInterface } = {};
+	let previousNetworkStats: { [key: string]: NetworkStats } = {};
+	let sortedInterfaces: NetworkInterface[] = $state([]);
 
 	let showAllInterfaces = $state(false);
 
@@ -36,8 +36,8 @@
 
 				// Calculate bytes per second
 				const timeDiff = Math.max(0.1, (currentTime - prev.time) / 1000);
-				const receivedRate = Math.max(0, (iface.rx - prev.received) / timeDiff);
-				const transmittedRate = Math.max(0, (iface.tx - prev.transmitted) / timeDiff);
+				const receiveRate = Math.max(0, (iface.rx - prev.received) / timeDiff);
+				const transmitRate = Math.max(0, (iface.tx - prev.transmitted) / timeDiff);
 
 				// Update previous stats
 				previousNetworkStats[iface.name] = {
@@ -49,14 +49,18 @@
 				// Store interface with rates
 				networkInterfaces[iface.name] = {
 					name: iface.name,
-					receiveRate: receivedRate,
-					transmitRate: transmittedRate
+					rx: iface.rx,
+					tx: iface.tx,
+					receiveRate,
+					transmitRate
 				};
 
 				return {
-					...iface,
-					receivedRate,
-					transmittedRate
+					name: iface.name,
+					rx: iface.rx,
+					tx: iface.tx,
+					receiveRate,
+					transmitRate
 				};
 			});
 
@@ -94,11 +98,11 @@
 							</div>
 							<div class="info-item">
 								<span class="info-label">Receive Rate:</span>
-								<span class="info-value">{formatBytesPerSecond(iface.receivedRate)}</span>
+								<span class="info-value">{formatBytesPerSecond(iface.receiveRate ?? 0)}</span>
 							</div>
 							<div class="info-item">
 								<span class="info-label">Transmit Rate:</span>
-								<span class="info-value">{formatBytesPerSecond(iface.transmittedRate)}</span>
+								<span class="info-value">{formatBytesPerSecond(iface.transmitRate ?? 0)}</span>
 							</div>
 						</div>
 					</div>

@@ -75,10 +75,18 @@ interface NetworkInfo {
 	interfaces: NetworkInterface[];
 }
 
-interface NetworkInterface {
+export interface NetworkInterface {
 	name: string;
 	rx: number;
 	tx: number;
+	receiveRate?: number;
+	transmitRate?: number;
+}
+
+export interface NetworkStats {
+	received: number;
+	transmitted: number;
+	time: number;
 }
 
 interface DiskInfo {

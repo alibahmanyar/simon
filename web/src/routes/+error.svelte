@@ -3,7 +3,7 @@
 	import '$lib/style.css';
 
 	if (!page.url.href.endsWith('/')) {
-		const url = new window.URL(page.url.href);
+		const url = new URL(page.url.href);
 		url.pathname += '/';
 		window.location.href = url.href;
 	}

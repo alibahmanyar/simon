@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createChart, AreaSeries, ColorType } from 'lightweight-charts';
+	import {
+		createChart,
+		ColorType,
+		AreaSeries,
+		type IChartApi,
+		type ISeriesApi
+	} from 'lightweight-charts';
 	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils.svelte';
 	import { getHistoricalData } from '$lib/api';
 	import type { HistoricalSeries } from '$lib/types';
@@ -65,8 +71,9 @@
 
 	let seriesData: HistoricalSeries[] = $state([]);
 	let chartContainers: HTMLDivElement[] = $state([]);
-	let charts: any[] = [];
-	let areaSeries: any[] = [];
+	let charts: IChartApi[] = [];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let areaSeries: ISeriesApi<any>[] = [];
 
 	const timeOffset = new Date().getTimezoneOffset() * 60;
 

@@ -141,7 +141,7 @@
 	}
 
 	function getFileUrl(path: string, inline = false): string {
-		const params = new window.URLSearchParams({ path });
+		const params = new URLSearchParams({ path });
 		if (inline) params.set('inline', 'true');
 		return url(`api/files/download?${params}`);
 	}
