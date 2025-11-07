@@ -30,17 +30,19 @@ struct LoginForm {
 }
 
 pub async fn auth_handler(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     request: Request,
 ) -> impl IntoResponse {
     // Extract form data
     let pass = match Form::<LoginForm>::from_request(request, &()).await {
-        Ok(form) => form.password.clone(),
+        Ok(Form(login_form)) => login_form.password,
         Err(_) => "".to_string(),
     };
 
     // Check if password matches
-    if bcrypt::verify(pass, &config.password_hash.unwrap_or_default()).unwrap_or(false) {
+    if let Some(ref password_hash) = config.password_hash
+        && bcrypt::verify(&pass, password_hash).unwrap_or(false)
+    {
         // Create JWT token
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -80,7 +82,7 @@ pub async fn auth_handler(
 
 // Middleware function to check authentication
 async fn auth_middleware(
-    State(config): State<Config>,
+    State(config): State<Arc<Config>>,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -128,6 +130,6 @@ async fn auth_middleware(
     Ok(next.run(request).await)
 }
 
-pub fn apply_auth_middleware(app: Router, config: Config) -> Router {
+pub fn apply_auth_middleware(app: Router, config: Arc<Config>) -> Router {
     app.layer(middleware::from_fn_with_state(config, auth_middleware))
 }

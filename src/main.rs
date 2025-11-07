@@ -59,12 +59,13 @@ async fn main() {
     let sys = System::new();
 
     // Detect system capabilities
-    config.system_capabilities = detect_system_capabilities(config.clone());
+    config.system_capabilities = detect_system_capabilities(&config);
 
     let shared_sys = Arc::new(Mutex::new(sys));
 
     let bg_sys = shared_sys.clone();
     let db_sys = shared_sys.clone();
+    let shared_config = Arc::new(config.clone());
 
     // System refresh background task with restart on panic
     tokio::spawn(async move {
@@ -156,10 +157,10 @@ async fn main() {
         .route("/api/files/content", get(get_file_content))
         .route("/api/files/download", get(download_file))
         .fallback(fallback_handler)
-        .with_state((shared_sys, config.clone()));
+        .with_state((shared_sys, shared_config.clone()));
 
     if config.password_hash.is_some() {
-        app = auth::apply_auth_middleware(app, config.clone());
+        app = auth::apply_auth_middleware(app, shared_config.clone());
         info!("Running with authentication");
     } else {
         info!("Running without authentication");

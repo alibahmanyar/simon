@@ -72,7 +72,7 @@ pub fn parse_config() -> Config {
         }
     }
 
-    let db = match db::Database::new(&config.db_path.clone()) {
+    let db = match db::Database::new(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);

@@ -7,7 +7,7 @@ use futures::StreamExt;
 use log::{debug, info, trace, warn};
 use sysinfo::{Disks, Networks, System};
 
-pub fn detect_system_capabilities(config: Config) -> SystemCapabilities {
+pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     info!("Detecting system capabilities");
 
     let mut capabilities = SystemCapabilities {
@@ -479,7 +479,7 @@ mod tests {
             update_interval: 60,
             system_capabilities: SystemCapabilities::default(),
         };
-        let capabilities = detect_system_capabilities(config);
+        let capabilities = detect_system_capabilities(&config);
 
         println!("Elapsed: {:.2?}", now.elapsed());
         println!("System Capabilities:");

@@ -147,7 +147,7 @@ pub async fn req_info(
 }
 
 pub async fn capabilities_handler(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("Capabilities requested");
     Json(ApiResponse::success(config.system_capabilities.clone())).into_response()
@@ -156,7 +156,7 @@ pub async fn capabilities_handler(
 // docker
 pub async fn ws_handler_d(
     ws: WebSocketUpgrade,
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("Docker websocket connection requested");
     ws.on_upgrade(move |socket| handle_socket_d(socket, config.update_interval))
@@ -199,7 +199,7 @@ async fn handle_socket_d(mut socket: WebSocket, ws_interval: u64) {
 // processes
 pub async fn ws_handler_p(
     ws: WebSocketUpgrade,
-    State((sys, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((sys, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("Processes websocket connection requested");
     ws.on_upgrade(move |socket| handle_socket_p(socket, sys, config.update_interval))
@@ -231,7 +231,7 @@ async fn handle_socket_p(mut socket: WebSocket, sys: Arc<Mutex<System>>, ws_inte
 // general info
 pub async fn ws_handler_g(
     ws: WebSocketUpgrade,
-    State((sys, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((sys, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("General system info websocket connection requested");
     ws.on_upgrade(move |socket| handle_socket_g(socket, sys, config.update_interval))
@@ -302,7 +302,7 @@ pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoRe
 // Historical data endpoint
 pub async fn historical_data(
     Query(params): Query<HistoricalQueryOptions>,
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("Historical data requested: {:?}", params);
     // Open database connection
@@ -334,7 +334,7 @@ pub async fn historical_data(
 }
 
 pub async fn add_notif_method(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     body: Result<Json<NotificationMethod>, JsonRejection>,
 ) -> impl IntoResponse {
     let mut notification_method = match body {
@@ -402,7 +402,7 @@ pub async fn add_notif_method(
 }
 
 pub async fn get_notif_methods(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
@@ -425,7 +425,7 @@ pub async fn get_notif_methods(
 }
 
 pub async fn delete_notif_method(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
@@ -457,7 +457,7 @@ pub async fn delete_notif_method(
 }
 
 pub async fn add_alert(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     body: Result<Json<models::Alert>, JsonRejection>,
 ) -> impl IntoResponse {
     let mut alert = match body {
@@ -519,7 +519,7 @@ pub async fn add_alert(
 }
 
 pub async fn get_alerts(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
@@ -541,7 +541,7 @@ pub async fn get_alerts(
 }
 
 pub async fn delete_alert(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     info!("Deleting alert with ID: {}", id);
@@ -575,7 +575,7 @@ pub async fn delete_alert(
 }
 
 pub async fn get_alert_vars(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     let db = match Database::new(&config.db_path) {
         Ok(db) => db,
@@ -603,7 +603,7 @@ pub async fn get_alert_vars(
 }
 
 pub async fn get_serve_dirs(
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     debug!("Getting serve directories");
     if !config.system_capabilities.file_serving {
@@ -617,7 +617,7 @@ pub async fn get_serve_dirs(
 
 pub async fn browse_directory(
     Query(params): Query<std::collections::HashMap<String, String>>,
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return Json(ApiResponse::<Vec<String>>::error(
@@ -757,7 +757,7 @@ pub async fn browse_directory(
 
 pub async fn download_file(
     Query(params): Query<std::collections::HashMap<String, String>>,
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return Json(ApiResponse::<Vec<String>>::error(
@@ -837,7 +837,7 @@ pub async fn download_file(
 
 pub async fn get_file_content(
     Query(params): Query<std::collections::HashMap<String, String>>,
-    State((_, config)): State<(Arc<Mutex<System>>, Config)>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return Json(ApiResponse::<Vec<String>>::error(
