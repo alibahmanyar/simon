@@ -154,7 +154,7 @@
 		if (filename.startsWith('.'))
 			// Hidden files (dot files)
 			filename = filename.slice(1);
-		if (!filename.includes('.')) return filename;
+		if (!filename.includes('.')) return '';
 
 		return filename.split('.').pop()?.toLowerCase() || '';
 	}
@@ -217,6 +217,7 @@
 
 	function getLanguageFromFilename(filename: string): string {
 		const ext = getFileExtension(filename);
+		if (ext === '') return filename;
 		return languageMap[ext] || 'plaintext';
 	}
 
