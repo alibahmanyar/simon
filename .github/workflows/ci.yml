@@ -113,6 +113,14 @@ jobs:
       with:
         toolchain: stable
         components: rustfmt, clippy
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        
+    - name: Build web application
+      run: make web-setup && make web
         
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
