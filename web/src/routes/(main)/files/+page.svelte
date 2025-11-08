@@ -15,7 +15,8 @@
 	} from '$lib/fileExtensions';
 	import { formatBytes, url } from '$lib/utils.svelte';
 	import hljs from 'highlight.js';
-	import 'highlight.js/styles/atom-one-dark.css';
+	import type { HLJSApiWithLineNumbers } from '$lib/highlightjs-line-numbers';
+	import 'highlight.js/styles/atom-one-dark-reasonable.min.css';
 
 	// Constants
 	const MAX_TEXT_FILE_SIZE = 102400; // 100KB
@@ -63,6 +64,13 @@
 	});
 
 	onMount(async () => {
+		// Make hljs available globally and load line numbers plugin
+		if (typeof window !== 'undefined') {
+			(window as typeof window & { hljs: typeof hljs }).hljs = hljs;
+			// @ts-expect-error highlightjs-line-numbers.js has no types
+			await import('highlightjs-line-numbers.js');
+		}
+
 		const result = await getServeDirs();
 		is_loading = false;
 
@@ -199,7 +207,10 @@
 			// Apply syntax highlighting
 			setTimeout(() => {
 				const codeBlock = document.querySelector('.file-viewer-content code');
-				if (codeBlock) hljs.highlightElement(codeBlock as HTMLElement);
+				if (codeBlock) {
+					hljs.highlightElement(codeBlock as HTMLElement);
+					(hljs as HLJSApiWithLineNumbers).lineNumbersBlock(codeBlock as HTMLElement);
+				}
 			}, HIGHLIGHT_DELAY);
 		} else {
 			fileError = result.error;

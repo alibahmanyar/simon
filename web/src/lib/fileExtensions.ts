@@ -576,6 +576,7 @@ export const languageMap: Record<string, string> = {
 	rmd: 'r',
 	jl: 'julia',
 	v: 'v',
+	vhdl: 'vhdl',
 	zig: 'zig',
 	nim: 'nim',
 	erl: 'erlang',

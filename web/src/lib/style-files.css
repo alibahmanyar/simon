@@ -358,15 +358,17 @@
 	padding: 1.5rem;
 	background: #282c34;
 	border-radius: 0 0 8px 8px;
-	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace;
+	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace !important;
 }
 
-.file-viewer-content code {
-	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace;
+.file-viewer-content code,
+.file-viewer-content code *,
+.file-viewer-content pre,
+.file-viewer-content pre * {
+	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace !important;
 	font-size: 0.9rem;
 	line-height: 1.6;
 	white-space: pre;
-	display: block;
 	font-weight: normal;
 }
 
@@ -382,6 +384,12 @@
 
 .file-error {
 	color: #ff6b6b;
+}
+
+.hljs-ln-numbers {
+	text-align: end;
+	color: #d3d3d3;
+	padding-right: 10px !important;
 }
 
 @media (max-width: 1400px) {
