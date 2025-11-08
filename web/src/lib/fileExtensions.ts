@@ -459,7 +459,9 @@ export const textExtensions = [
 	'nix',
 	'wsdl',
 	'xaml',
-	'lock'
+	'lock',
+	'build',
+	'glsl'
 ];
 
 // File extension to speed-highlight language mapping
