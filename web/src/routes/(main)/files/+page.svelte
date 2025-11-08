@@ -219,8 +219,9 @@
 	}
 
 	function getLanguageFromFilename(filename: string): string {
-		const ext = getFileExtension(filename).toLowerCase();
-		if (ext === '') return 'plain';
+		let ext = getFileExtension(filename).toLowerCase();
+		if (ext === '')
+			ext = filename.toLowerCase();
 		return languageMap[ext] || 'plain';
 	}
 
