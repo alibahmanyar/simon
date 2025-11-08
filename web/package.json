@@ -39,10 +39,9 @@
 		"vitest": "^4.0.6"
 	},
 	"dependencies": {
+		"@speed-highlight/core": "^1.2.12",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"chart.js": "^4.5.1",
-		"highlight.js": "^11.11.1",
-		"highlightjs-line-numbers.js": "^2.9.1",
 		"lightweight-charts": "^5.0.9"
 	}
 }
