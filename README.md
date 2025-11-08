@@ -13,14 +13,12 @@
 
 
 <p align="center">
-<strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and a built-in file browser.</strong>
+<strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and a built-in file browser</strong>
 <br />
-It's a single, dependency-free binary written in Rust, designed for resource-constrained environments like embedded Linux systems.
+It's a single, dependency-free binary written in Rust, designed for resource-constrained environments like embedded Linux systems
 </p>
 
----
-
-## Demo
+<br><br>
 
 <p align="center">
   <img src="docs/media/simon.gif" alt="Simon Demo - Live system monitoring interface" width="800">
