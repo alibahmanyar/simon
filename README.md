@@ -15,10 +15,22 @@
 <p align="center">
 <strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and a built-in file browser.</strong>
 <br />
-Packaged as a single binary, perfect for embedded Linux systems and resource-constrained environments.
+It's a single, dependency-free binary written in Rust, designed for resource-constrained environments like embedded Linux systems.
 </p>
 
+---
 
+## Demo
+
+<p align="center">
+  <img src="docs/media/simon.gif" alt="Simon Demo - Live system monitoring interface" width="800">
+  <br>
+  <em>Real-time monitoring, Docker integration, file browsing, and alert management - all in one interface</em>
+  <br><br>
+  <a href="docs/SCREENSHOTS.md"><strong>View All Screenshots</strong></a>
+</p>
+
+---
 
 ## Table of Contents
 
@@ -26,7 +38,7 @@ Packaged as a single binary, perfect for embedded Linux systems and resource-con
 - [Quick Start](#quick-start)
 - [Documentation](#documentation)
 - [Building from Source](#building-from-source)
-- [Screenshots](#screenshots)
+- [Gallery](#gallery)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -34,7 +46,8 @@ Packaged as a single binary, perfect for embedded Linux systems and resource-con
 ## Features
 
 ### 🪶 Lightweight
-- **Single binary** - No dependencies, just download and run
+- **Written in Rust:** For a memory-safe, high-performance core
+- **Single Binary:** A self-contained executable with no external dependencies to install or manage
 - **Minimal resource footprint** - Perfect for embedded systems and low-power devices
 
 ### 📊 System Monitoring
@@ -155,57 +168,23 @@ make web
 make release
 ```
 
-## Screenshots
+---
+
+## Gallery
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/2f22c4db-ffe6-49d1-a936-e683a88e7c4c" alt="Main Dashboard">
-  <br><em>Real-time system metrics overview</em>
+  <img src="docs/media/screenshots/system.png" alt="System Dashboard" width="45%">
+  <img src="docs/media/screenshots/network.png" alt="Network Stats" width="45%">
+  <br>
+  <img src="docs/media/screenshots/docker.png" alt="Docker Integration" width="45%">
+  <img src="docs/media/screenshots/alerts.png" alt="Alerts & Notifications" width="45%">
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/43c5d88d-1f86-4abe-b152-a08879cde52b" alt="Storage Information">
-  <br><em>Detailed storage and filesystem monitoring</em>
+  <a href="docs/SCREENSHOTS.md"><strong>View All Screenshots →</strong></a>
 </p>
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/bc358c99-0c89-4b65-8bef-fe852893546d" alt="Network Statistics">
-  <br><em>Network interface statistics and throughput</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/31c8910d-d2de-440f-87e4-32170a9d00b1" alt="Docker Integration">
-  <br><em>Container management and resource monitoring</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/778ea4de-638e-451e-8015-0149509c74e9" alt="Historical Charts">
-  <br><em>Historical data visualization</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/77331c06-8a11-4735-b936-ae4d533c7dee" alt="Notification Methods">
-  <br><em>Notification method configuration with templates</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2b5a86ee-8292-417f-9410-f652575e5cad" alt="Adding Notification">
-  <br><em>Creating new notification methods</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7a412432-ed84-4332-91e7-c2d9913aa3a6" alt="Alert Configuration">
-  <br><em>Configuring alert rules and thresholds</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2a08a008-eaa3-4a6f-8816-d7d859989fd2" alt="Alerts Overview">
-  <br><em>Managing active alerts</em>
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/f4aba877-0f75-49b1-b1cd-630d6f50c064" alt="Mobile View">
-  <br><em>Responsive mobile interface</em>
-</p>
+---
 
 ## License
 
