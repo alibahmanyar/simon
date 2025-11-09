@@ -28,6 +28,15 @@ use tokio::{
     time::{Duration, interval},
 };
 
+/// Helper function to compress JSON data with gzip
+/// This reduces code duplication and allows for potential optimization
+#[inline]
+fn compress_json(json_data: &str) -> Vec<u8> {
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    std::io::Write::write_all(&mut encoder, json_data.as_bytes()).unwrap();
+    encoder.finish().unwrap()
+}
+
 #[derive(Embed)]
 #[folder = "web/build/static"]
 struct Asset;
@@ -176,13 +185,9 @@ async fn handle_socket_d(mut socket: WebSocket, ws_interval: u64) {
                 String::from("null")
             }
         };
+        
         if socket
-            .send(Message::Binary({
-                let mut encoder =
-                    flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-                std::io::Write::write_all(&mut encoder, json_string.as_bytes()).unwrap();
-                encoder.finish().unwrap().into()
-            }))
+            .send(Message::Binary(compress_json(&json_string).into()))
             .await
             .is_err()
         {
@@ -210,14 +215,10 @@ async fn handle_socket_p(mut socket: WebSocket, sys: Arc<Mutex<System>>, ws_inte
     let mut interval = interval(Duration::from_secs(ws_interval));
     loop {
         let processes_info = collect_info::collect_processes_info(&sys.lock().unwrap());
+        let json_string = serde_json::to_string(&processes_info).unwrap();
+        
         if socket
-            .send(Message::Binary({
-                let json_string = serde_json::to_string(&processes_info).unwrap();
-                let mut encoder =
-                    flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-                std::io::Write::write_all(&mut encoder, json_string.as_bytes()).unwrap();
-                encoder.finish().unwrap().into()
-            }))
+            .send(Message::Binary(compress_json(&json_string).into()))
             .await
             .is_err()
         {
@@ -242,14 +243,10 @@ async fn handle_socket_g(mut socket: WebSocket, sys: Arc<Mutex<System>>, ws_inte
     let mut interval = interval(Duration::from_secs(ws_interval));
     loop {
         let general_info = collect_info::collect_general_info(&sys.lock().unwrap());
+        let json_string = serde_json::to_string(&general_info).unwrap();
+        
         if socket
-            .send(Message::Binary({
-                let json_string = serde_json::to_string(&general_info).unwrap();
-                let mut encoder =
-                    flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-                std::io::Write::write_all(&mut encoder, json_string.as_bytes()).unwrap();
-                encoder.finish().unwrap().into()
-            }))
+            .send(Message::Binary(compress_json(&json_string).into()))
             .await
             .is_err()
         {

@@ -174,8 +174,11 @@ impl Database {
 
         for cat in ["general", "net", "disk"] {
             let table_name = format!("{}_{}", cat, resolution);
-            // Build the query
-            let mut query = format!("SELECT * FROM {}", table_name);
+            // Build the query - use String::with_capacity to reduce reallocations
+            let mut query = String::with_capacity(128);
+            query.push_str("SELECT * FROM ");
+            query.push_str(&table_name);
+            
             let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
             // Fix query construction - first condition shouldn't have AND
@@ -203,8 +206,9 @@ impl Database {
             }
 
             // create HistoricalSeries from query results for each column
+            // Use with_capacity to reduce reallocations
             let mut series_map: std::collections::HashMap<(String, String), HistoricalSeries> =
-                std::collections::HashMap::new();
+                std::collections::HashMap::with_capacity(32);
 
             let conn = self.conn.lock().unwrap();
             let mut stmt = match conn.prepare(&query) {

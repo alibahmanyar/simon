@@ -5,7 +5,32 @@ use bollard::{
 };
 use futures::StreamExt;
 use log::{debug, info, trace, warn};
+use std::collections::HashSet;
+use std::sync::LazyLock;
 use sysinfo::{Disks, Networks, System};
+
+// Pre-computed set of valid filesystem types for O(1) lookup
+static VALID_FILESYSTEMS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    HashSet::from([
+        "ext2", "ext3", "ext4", "btrfs", "xfs", "zfs", "ntfs", "fat", "fat32", 
+        "exfat", "hfs", "hfs+", "apfs", "jfs", "reiserfs", "ufs", "f2fs", 
+        "nilfs2", "hpfs", "minix", "qnx4", "ocfs2", "udf", "vfat", "msdos"
+    ])
+});
+
+/// Check if a filesystem type is valid for monitoring
+#[inline]
+fn is_valid_filesystem(fs: &str) -> bool {
+    VALID_FILESYSTEMS.contains(fs.to_lowercase().as_str())
+}
+
+/// Check if a mount point should be excluded from monitoring
+#[inline]
+fn is_excluded_mount_point(mount_point: &str) -> bool {
+    mount_point.starts_with("/sys")
+        || mount_point.starts_with("/proc")
+        || mount_point.starts_with("/etc")
+}
 
 pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     info!("Detecting system capabilities");
@@ -75,41 +100,9 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
         .filter(|disk| {
             let fs = disk.file_system().to_str().unwrap_or_default();
             let mount_point = disk.mount_point().to_str().unwrap_or_default();
-            if fs.is_empty()
-                || mount_point.starts_with("/sys")
-                || mount_point.starts_with("/proc")
-                || mount_point.starts_with("/etc")
-            {
-                return false;
-            }
-            matches!(
-                fs.to_lowercase().as_str(),
-                "ext2"
-                    | "ext3"
-                    | "ext4"
-                    | "btrfs"
-                    | "xfs"
-                    | "zfs"
-                    | "ntfs"
-                    | "fat"
-                    | "fat32"
-                    | "exfat"
-                    | "hfs"
-                    | "hfs+"
-                    | "apfs"
-                    | "jfs"
-                    | "reiserfs"
-                    | "ufs"
-                    | "f2fs"
-                    | "nilfs2"
-                    | "hpfs"
-                    | "minix"
-                    | "qnx4"
-                    | "ocfs2"
-                    | "udf"
-                    | "vfat"
-                    | "msdos"
-            )
+            !fs.is_empty() 
+                && !is_excluded_mount_point(mount_point)
+                && is_valid_filesystem(fs)
         })
         .collect();
 
@@ -198,14 +191,14 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
 
     // Network info
     let networks = Networks::new_with_refreshed_list();
-    let interfaces = networks
-        .iter()
-        .map(|(name, data)| NetworkInterface {
+    let mut interfaces = Vec::with_capacity(networks.len());
+    for (name, data) in networks.iter() {
+        interfaces.push(NetworkInterface {
             name: name.to_string(),
             rx: data.total_received(),
             tx: data.total_transmitted(),
-        })
-        .collect();
+        });
+    }
     let network_info = NetworkInfo { interfaces };
 
     // Disk info
@@ -218,43 +211,10 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
                 let fs = disk.file_system().to_str().unwrap_or_default();
                 let mount_point = disk.mount_point().to_str().unwrap_or_default();
                 // Skip non-filesystems and system partitions
-                if fs.is_empty()
-                    || mount_point.starts_with("/sys")
-                    || mount_point.starts_with("/proc")
-                    || mount_point.starts_with("/etc")
-                    || mount_point.starts_with("/app")
-                {
-                    return false;
-                }
-                // Common filesystem types
-                matches!(
-                    fs.to_lowercase().as_str(),
-                    "ext2"
-                        | "ext3"
-                        | "ext4"
-                        | "btrfs"
-                        | "xfs"
-                        | "zfs"
-                        | "ntfs"
-                        | "fat"
-                        | "fat32"
-                        | "exfat"
-                        | "hfs"
-                        | "hfs+"
-                        | "apfs"
-                        | "jfs"
-                        | "reiserfs"
-                        | "ufs"
-                        | "f2fs"
-                        | "nilfs2"
-                        | "hpfs"
-                        | "minix"
-                        | "qnx4"
-                        | "ocfs2"
-                        | "udf"
-                        | "vfat"
-                        | "msdos"
-                )
+                !fs.is_empty()
+                    && !is_excluded_mount_point(mount_point)
+                    && !mount_point.starts_with("/app")
+                    && is_valid_filesystem(fs)
             })
             .map(|disk| DiskInfo {
                 fs: disk.file_system().to_str().unwrap_or_default().to_string(),
@@ -289,25 +249,33 @@ pub fn collect_processes_info(sys: &System) -> ProcessesInfo {
     let processes = sys
         .processes()
         .values()
-        .map(|process| ProcessInfo {
-            pid: process.pid().as_u32(),
-            name: process.name().to_str().unwrap_or_default().to_string(),
-            runtime: process.run_time(),
-            cpu: process.cpu_usage(),
-            mem: process.memory(),
-            stat: process.status().to_string(),
-            cmd: process
+        .map(|process| {
+            // Pre-allocate command string to reduce reallocations
+            let cmd_parts: Vec<_> = process
                 .cmd()
                 .iter()
-                .map(|x| x.to_str().unwrap_or_default())
-                .collect::<Vec<&str>>()
-                .join(" "),
-            env: process
+                .filter_map(|x| x.to_str())
+                .collect();
+            let cmd = cmd_parts.join(" ");
+            
+            // Pre-allocate environment string to reduce reallocations
+            let env_parts: Vec<_> = process
                 .environ()
                 .iter()
-                .map(|x| x.to_str().unwrap_or_default())
-                .collect::<Vec<&str>>()
-                .join("; "),
+                .filter_map(|x| x.to_str())
+                .collect();
+            let env = env_parts.join("; ");
+            
+            ProcessInfo {
+                pid: process.pid().as_u32(),
+                name: process.name().to_str().unwrap_or_default().to_string(),
+                runtime: process.run_time(),
+                cpu: process.cpu_usage(),
+                mem: process.memory(),
+                stat: process.status().to_string(),
+                cmd,
+                env,
+            }
         })
         .collect();
 
@@ -353,7 +321,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         }
     };
 
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(containers.len());
 
     // Pre-collect all stats futures
     debug!("Gathering stats for {} containers", containers.len());
