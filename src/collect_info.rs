@@ -5,7 +5,18 @@ use bollard::{
 };
 use futures::StreamExt;
 use log::{debug, info, trace, warn};
+use std::collections::HashSet;
+use std::sync::LazyLock;
 use sysinfo::{Disks, Networks, System};
+
+// Common filesystem types to monitor
+static VALID_FILESYSTEMS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    HashSet::from([
+        "ext2", "ext3", "ext4", "btrfs", "xfs", "zfs", "ntfs", "fat", "fat32", "exfat", "hfs",
+        "hfs+", "apfs", "jfs", "reiserfs", "ufs", "f2fs", "nilfs2", "hpfs", "minix", "qnx4",
+        "ocfs2", "udf", "vfat", "msdos",
+    ])
+});
 
 pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     info!("Detecting system capabilities");
@@ -23,7 +34,10 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     };
 
     // Test CPU detection
-    let sys = System::new_all();
+    let mut sys = System::new();
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
+
     if !sys.cpus().is_empty() {
         capabilities.cpu = true;
         debug!("CPU detection: available ({} cores)", sys.cpus().len());
@@ -48,12 +62,25 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     }
 
     // Test Load Average detection
-    let load_avg = System::load_average();
-    if load_avg.one > 0.0 || load_avg.five > 0.0 || load_avg.fifteen > 0.0 {
-        capabilities.load_average = true;
-        debug!("Load average detection: available");
-    } else {
-        debug!("Load average detection: unavailable");
+    match std::fs::read_to_string("/proc/loadavg") {
+        Ok(content) => {
+            if !content.trim().is_empty() {
+                capabilities.load_average = true;
+                debug!("Load average detection: available (read from /proc/loadavg)");
+            } else {
+                debug!("Load average detection: unavailable (/proc/loadavg is empty)");
+            }
+        }
+        Err(_) => {
+            // Fallback to sysinfo if /proc/loadavg is not readable
+            let load_avg = System::load_average();
+            if load_avg.one > 0.0 || load_avg.five > 0.0 || load_avg.fifteen > 0.0 {
+                capabilities.load_average = true;
+                debug!("Load average detection: available (fallback to sysinfo)");
+            } else {
+                debug!("Load average detection: unavailable");
+            }
+        }
     }
 
     // Test Network detection
@@ -82,34 +109,7 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
             {
                 return false;
             }
-            matches!(
-                fs.to_lowercase().as_str(),
-                "ext2"
-                    | "ext3"
-                    | "ext4"
-                    | "btrfs"
-                    | "xfs"
-                    | "zfs"
-                    | "ntfs"
-                    | "fat"
-                    | "fat32"
-                    | "exfat"
-                    | "hfs"
-                    | "hfs+"
-                    | "apfs"
-                    | "jfs"
-                    | "reiserfs"
-                    | "ufs"
-                    | "f2fs"
-                    | "nilfs2"
-                    | "hpfs"
-                    | "minix"
-                    | "qnx4"
-                    | "ocfs2"
-                    | "udf"
-                    | "vfat"
-                    | "msdos"
-            )
+            VALID_FILESYSTEMS.contains(&fs.to_lowercase().as_str())
         })
         .collect();
 
@@ -120,26 +120,42 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
         debug!("Disk detection: unavailable");
     }
 
-    // Test Process detection
-    if !sys.processes().is_empty() {
-        capabilities.processes = true;
-        debug!(
-            "Process detection: available ({} processes)",
-            sys.processes().len()
-        );
+    // Test Process detection (Linux-specific via /proc)
+    if cfg!(target_os = "linux") {
+        match std::fs::read_to_string("/proc/self/stat") {
+            Ok(content) if !content.is_empty() => {
+                capabilities.processes = true;
+                debug!("Process detection: available (Linux /proc filesystem is readable)");
+            }
+            _ => {
+                debug!("Process detection: unavailable (/proc not readable)");
+            }
+        }
     } else {
-        debug!("Process detection: unavailable");
+        debug!("Process: unavailable (not Linux)");
     }
 
-    // Test Docker detection (synchronous check)
-    match Docker::connect_with_local_defaults() {
-        Ok(_) => {
-            capabilities.docker = true;
-            debug!("Docker detection: available");
+    // Test Docker detection
+    if cfg!(target_os = "linux") {
+        match Docker::connect_with_local_defaults() {
+            Ok(_) => {
+                capabilities.docker = true;
+                debug!("Docker detection: available");
+            }
+            Err(e) => {
+                if std::fs::metadata("/var/run/docker.sock").ok().is_some() {
+                    debug!(
+                        "Docker detection: unavailable (Docker socket exists but connection failed: {})",
+                        e
+                    );
+                } else {
+                    debug!("Docker detection: unavailable (Docker socket not found)");
+                }
+                debug!("Docker detection: unavailable ({})", e);
+            }
         }
-        Err(e) => {
-            debug!("Docker detection: unavailable ({})", e);
-        }
+    } else {
+        debug!("Docker: unavailable (not Linux)");
     }
 
     info!(
@@ -227,34 +243,7 @@ pub fn collect_general_info(sys: &System) -> GeneralInfo {
                     return false;
                 }
                 // Common filesystem types
-                matches!(
-                    fs.to_lowercase().as_str(),
-                    "ext2"
-                        | "ext3"
-                        | "ext4"
-                        | "btrfs"
-                        | "xfs"
-                        | "zfs"
-                        | "ntfs"
-                        | "fat"
-                        | "fat32"
-                        | "exfat"
-                        | "hfs"
-                        | "hfs+"
-                        | "apfs"
-                        | "jfs"
-                        | "reiserfs"
-                        | "ufs"
-                        | "f2fs"
-                        | "nilfs2"
-                        | "hpfs"
-                        | "minix"
-                        | "qnx4"
-                        | "ocfs2"
-                        | "udf"
-                        | "vfat"
-                        | "msdos"
-                )
+                VALID_FILESYSTEMS.contains(&fs.to_lowercase().as_str())
             })
             .map(|disk| DiskInfo {
                 fs: disk.file_system().to_str().unwrap_or_default().to_string(),
@@ -353,7 +342,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
         }
     };
 
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(containers.len());
 
     // Pre-collect all stats futures
     debug!("Gathering stats for {} containers", containers.len());

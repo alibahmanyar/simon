@@ -170,13 +170,13 @@ impl Database {
             _ => "m", // Default to minute metrics
         };
 
-        let mut series_results: Vec<HistoricalSeries> = Vec::new();
+        let mut series_results: Vec<HistoricalSeries> = Vec::with_capacity(3);
 
         for cat in ["general", "net", "disk"] {
             let table_name = format!("{}_{}", cat, resolution);
             // Build the query
             let mut query = format!("SELECT * FROM {}", table_name);
-            let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+            let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::with_capacity(3);
 
             // Fix query construction - first condition shouldn't have AND
             let mut has_where = false;
