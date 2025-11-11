@@ -10,7 +10,7 @@ panic = 'abort'
 strip = true
 
 [dependencies]
-axum = { version = "^0.8", features = ["ws"] }
+axum = { version = "^0.8", features = ["ws", "multipart"] }
 tokio = { version = "^1.0", features = ["full", "macros"] }
 serde = { version = "^1.0", features = ["derive"] }
 sysinfo = "^0.37"

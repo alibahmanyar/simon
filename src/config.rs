@@ -36,6 +36,10 @@ pub struct Config {
     #[arg(long = "serve-dir", env = "SIMON_SERVE_DIRS", value_delimiter = ',')]
     pub serve_dirs: Vec<String>,
 
+    /// Maximum file upload size in bytes Default is 10GiB
+    #[arg(long, default_value = "10737418240", env = "SIMON_UPLOAD_LIMIT")]
+    pub upload_limit: u64,
+
     /// JWT secret key for authentication tokens
     #[arg(skip)]
     pub jwt_secret: String,

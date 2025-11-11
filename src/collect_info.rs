@@ -472,6 +472,7 @@ mod tests {
             jwt_secret: "".to_string(),
             update_interval: 60,
             system_capabilities: SystemCapabilities::default(),
+            upload_limit: 10737418240,
         };
         let capabilities = detect_system_capabilities(&config).await;
 

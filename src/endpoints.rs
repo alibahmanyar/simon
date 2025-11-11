@@ -6,7 +6,7 @@ use axum::Json;
 use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Path, Query, Request};
+use axum::extract::{Multipart, Path, Query, Request};
 use axum::http::StatusCode;
 use axum::{
     extract::{ConnectInfo, State, WebSocketUpgrade},
@@ -25,6 +25,7 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{
     self,
+    io::AsyncWriteExt,
     time::{Duration, interval},
 };
 
@@ -47,6 +48,67 @@ fn validate_path_access(path: &str, allowed_dirs: &[String]) -> Option<PathBuf> 
     }
 
     None
+}
+
+/// Generates a unique path by appending a number if the file/folder already exists
+/// e.g., "file.txt" -> "file (1).txt" -> "file (2).txt"
+fn generate_unique_path(path: &std::path::Path) -> PathBuf {
+    if !path.exists() {
+        return path.to_path_buf();
+    }
+
+    if path.file_name().is_none() || path.file_name().unwrap().to_str().is_none() {
+        return path.to_path_buf();
+    }
+
+    let parent = path.parent();
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+
+    // Split filename and extension
+    let (name, ext) = if let Some(dot_pos) = file_name.rfind('.') {
+        let name = &file_name[..dot_pos];
+        let ext = &file_name[dot_pos..];
+        (name, ext)
+    } else {
+        (file_name, "")
+    };
+
+    // Try to find a unique name
+    for i in 1..100 {
+        let new_name = if ext.is_empty() {
+            format!("{} ({})", name, i)
+        } else {
+            format!("{} ({}){}", name, i, ext)
+        };
+
+        let new_path = if let Some(p) = parent {
+            p.join(new_name)
+        } else {
+            PathBuf::from(new_name)
+        };
+
+        if !new_path.exists() {
+            return new_path;
+        }
+    }
+
+    // Fallback: use timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    let new_name = if ext.is_empty() {
+        format!("{} ({})", name, timestamp)
+    } else {
+        format!("{} ({}){}", name, timestamp, ext)
+    };
+
+    if let Some(p) = parent {
+        p.join(new_name)
+    } else {
+        PathBuf::from(new_name)
+    }
 }
 
 pub async fn serve_static(request: Request<Body>) -> impl IntoResponse {
@@ -620,10 +682,13 @@ pub async fn browse_directory(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
-        return Json(ApiResponse::<Vec<String>>::error(
-            "File serving is disabled".to_string(),
-        ))
-        .into_response();
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
     }
 
     let path = match params.get("path") {
@@ -753,10 +818,13 @@ pub async fn download_file(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
-        return Json(ApiResponse::<Vec<String>>::error(
-            "File serving is disabled".to_string(),
-        ))
-        .into_response();
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
     }
 
     let path = match params.get("path") {
@@ -833,10 +901,13 @@ pub async fn get_file_content(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
-        return Json(ApiResponse::<Vec<String>>::error(
-            "File serving is disabled".to_string(),
-        ))
-        .into_response();
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
     }
 
     let path = match params.get("path") {
@@ -899,6 +970,579 @@ pub async fn get_file_content(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Failed to read file: {}", e),
+            )
+                .into_response()
+        }
+    }
+}
+
+pub async fn upload_file(
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let mut upload_path: Option<String> = None;
+    let mut uploaded_files = Vec::new();
+    let mut errors = Vec::new();
+    let mut file_count = 0;
+
+    // Parse multipart fields
+    loop {
+        let field = match multipart.next_field().await {
+            Ok(Some(f)) => f,
+            Ok(None) => break,
+            Err(e) => {
+                error!("Failed to read multipart field: {}", e);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiResponse::<String>::error(format!(
+                        "Failed to read multipart data: {}",
+                        e
+                    ))),
+                )
+                    .into_response();
+            }
+        };
+
+        let field_name = field.name().unwrap_or("").to_string();
+
+        if field_name == "path" {
+            match field.text().await {
+                Ok(text) => upload_path = Some(text),
+                Err(e) => {
+                    error!("Failed to read path field: {}", e);
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiResponse::<String>::error(format!(
+                            "Failed to read path: {}",
+                            e
+                        ))),
+                    )
+                        .into_response();
+                }
+            }
+        } else if field_name == "file" || field_name.starts_with("file-") {
+            // We need the upload path before processing files
+            let path = match &upload_path {
+                Some(p) => p,
+                None => {
+                    error!("Received file before path parameter");
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiResponse::<String>::error(
+                            "Path parameter must be sent before files".to_string(),
+                        )),
+                    )
+                        .into_response();
+                }
+            };
+
+            // Security check: Ensure the base path is within one of the allowed serve_dirs
+            let canonical_base_path = match validate_path_access(path, &config.serve_dirs) {
+                Some(p) => p,
+                None => {
+                    warn!("Access denied to path: {}", path);
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ApiResponse::<String>::error("Access denied".to_string())),
+                    )
+                        .into_response();
+                }
+            };
+
+            // Ensure the target path is a directory
+            if !canonical_base_path.is_dir() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiResponse::<String>::error(
+                        "Target path is not a directory".to_string(),
+                    )),
+                )
+                    .into_response();
+            }
+
+            // Get the file name - this can be the full path for folder uploads
+            let file_name = match field.file_name() {
+                Some(name) => name,
+                None => {
+                    error!("Missing file name in upload");
+                    errors.push("Unnamed file: Missing file name".to_string());
+                    continue;
+                }
+            };
+
+            file_count += 1;
+
+            debug!("Processing file: {}", file_name);
+
+            // Clean up the relative path (remove leading slashes, etc.)
+            // Canonicalize the path to prevent directory traversal
+            let mut canonical_file_name = PathBuf::from(file_name.trim_start_matches('/'));
+            match canonical_file_name.canonicalize() {
+                Ok(p) => {
+                    canonical_file_name = p;
+                }
+                Err(_) => {
+                    // return an error if the path cannot be canonicalized
+                    error!("Invalid file path: {}", file_name);
+                    errors.push(format!("{}: Invalid file path", file_name));
+                    continue;
+                }
+            }
+
+            // Construct the full file path
+            let mut file_path = match canonical_base_path.join(canonical_file_name).canonicalize() {
+                Ok(p) => p,
+                Err(_) => {
+                    // return an error if the path cannot be canonicalized
+                    error!("Invalid file path after join: {}", file_name);
+                    errors.push(format!("{}: Invalid file path", file_name));
+                    continue;
+                }
+            };
+
+            // Check if file exists and rename if necessary
+            if file_path.exists() {
+                file_path = generate_unique_path(&file_path);
+                debug!("File exists, renamed to: {:?}", file_path);
+            }
+
+            // Validate the final path is still within allowed directories (if file_path is ../sth)
+            let file_path_str = file_path.to_str().unwrap();
+            if validate_path_access(file_path_str, &config.serve_dirs).is_none() {
+                warn!("Access denied to final path: {:?}", file_path);
+                errors.push(format!("{}: Access denied", file_path_str));
+                continue;
+            }
+
+            // Create parent directories if they don't exist (for folder uploads)
+            if let Some(parent) = file_path.parent()
+                && !parent.exists()
+                && let Err(e) = tokio::fs::create_dir_all(parent).await
+            {
+                error!("Failed to create directory {:?}: {}", parent, e);
+                errors.push(format!(
+                    "{}: Failed to create directory",
+                    parent.to_str().unwrap()
+                ));
+                continue;
+            }
+
+            // Stream the file directly to disk
+            let file_result: Result<u64, Box<dyn std::error::Error>> = async {
+                let mut file = tokio::fs::File::create(&file_path).await?;
+                let mut stream = field;
+                let mut total_bytes = 0u64;
+
+                while let Some(chunk) = stream.chunk().await? {
+                    file.write_all(&chunk).await?;
+                    total_bytes += chunk.len() as u64;
+                }
+
+                file.flush().await?;
+                Ok(total_bytes)
+            }
+            .await;
+
+            match file_result {
+                Ok(bytes_written) => {
+                    let uploaded_name = file_path
+                        .strip_prefix(&canonical_base_path)
+                        .unwrap_or(&file_path)
+                        .to_string_lossy()
+                        .to_string();
+
+                    info!(
+                        "File uploaded successfully: {:?} ({} bytes)",
+                        file_path, bytes_written
+                    );
+                    uploaded_files.push(uploaded_name);
+                }
+                Err(e) => {
+                    error!("Failed to write file {:?}: {}", file_path, e);
+                    errors.push(format!("{}: {}", file_path_str, e));
+                }
+            }
+        }
+    }
+
+    // Verify we got a path
+    if upload_path.is_none() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "Missing path parameter".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    if file_count == 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "No files provided".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Build response message
+    let message = if errors.is_empty() {
+        if uploaded_files.len() == 1 {
+            format!("File '{}' uploaded successfully", uploaded_files[0])
+        } else {
+            format!("{} files uploaded successfully", uploaded_files.len())
+        }
+    } else if uploaded_files.is_empty() {
+        format!("Failed to upload files: {}", errors.join(", "))
+    } else {
+        format!(
+            "{} files uploaded, {} failed: {}",
+            uploaded_files.len(),
+            errors.len(),
+            errors.join(", ")
+        )
+    };
+
+    let status = if uploaded_files.is_empty() {
+        StatusCode::INTERNAL_SERVER_ERROR
+    } else {
+        StatusCode::OK
+    };
+
+    (status, Json(ApiResponse::success(message))).into_response()
+}
+
+pub async fn create_folder(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let path = match params.get("path") {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Missing path parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    let folder_name = match params.get("name") {
+        Some(n) => n,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Missing name parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    debug!("Creating folder: {} in {}", folder_name, path);
+
+    // Security check: Ensure the path is within one of the allowed serve_dirs
+    let canonical_path = match validate_path_access(path, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to path: {}", path);
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ApiResponse::<String>::error("Access denied".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Ensure the target path is a directory
+    if !canonical_path.is_dir() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "Target path is not a directory".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Construct the folder path
+    let canonical_folder_name = match PathBuf::from(folder_name).canonicalize() {
+        Ok(p) => p,
+        Err(_) => {
+            // return an error if the path cannot be canonicalized
+            error!("Invalid folder name: {}", folder_name);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Invalid folder name".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+    let mut folder_path = canonical_path.join(canonical_folder_name.clone());
+
+    // Validate the final path is still within allowed directories
+    let folder_path_str = folder_path.to_str().unwrap();
+    if validate_path_access(folder_path_str, &config.serve_dirs).is_none() {
+        warn!("Access denied to final path: {:?}", folder_path);
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error("Access denied".to_string())),
+        )
+            .into_response();
+    }
+
+    // Check if folder exists and rename if necessary
+    if folder_path.exists() {
+        folder_path = generate_unique_path(&folder_path);
+    }
+
+    // Create the folder
+    match tokio::fs::create_dir(&folder_path).await {
+        Ok(_) => {
+            info!("Folder created successfully: {:?}", folder_path);
+            (
+                StatusCode::OK,
+                Json(ApiResponse::success(format!(
+                    "Folder '{}' created successfully",
+                    canonical_folder_name.to_str().unwrap_or("unknown")
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to create folder: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<String>::error(format!(
+                    "Failed to create folder: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        }
+    }
+}
+
+pub async fn move_file(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let source = match params.get("source") {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Missing source parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    let destination = match params.get("destination") {
+        Some(d) => d,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Missing destination parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    debug!("Moving: {} to {}", source, destination);
+
+    // Security check: Ensure the source is within one of the allowed serve_dirs
+    let canonical_source = match validate_path_access(source, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to path: {}", source);
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ApiResponse::<String>::error("Access denied".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Security check: Ensure the destination is within one of the allowed serve_dirs
+    let canonical_destination = match validate_path_access(destination, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to path: {}", destination);
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ApiResponse::<String>::error("Access denied".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if target already exists
+    if canonical_destination.exists() {
+        let name = canonical_destination
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+        return (
+            StatusCode::CONFLICT,
+            Json(ApiResponse::<String>::error(format!(
+                "A file or folder named '{}' already exists at destination",
+                name
+            ))),
+        )
+            .into_response();
+    }
+
+    // Move/rename the file/folder
+    match tokio::fs::rename(&canonical_source, &canonical_destination).await {
+        Ok(_) => {
+            info!(
+                "Moved successfully: {:?} -> {:?}",
+                canonical_source, canonical_destination
+            );
+            let name = canonical_destination
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown");
+            (
+                StatusCode::OK,
+                Json(ApiResponse::success(format!(
+                    "Moved to '{}' successfully",
+                    name
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to move: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<String>::error(format!(
+                    "Failed to move: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        }
+    }
+}
+
+pub async fn delete_file(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+) -> impl IntoResponse {
+    if !config.system_capabilities.file_serving {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "File serving is disabled".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let path = match params.get("path") {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Missing path parameter".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    debug!("Deleting: {}", path);
+
+    // Security check: Ensure the path is within one of the allowed serve_dirs
+    let canonical_path = match validate_path_access(path, &config.serve_dirs) {
+        Some(p) => p,
+        None => {
+            warn!("Access denied to path: {}", path);
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ApiResponse::<String>::error("Access denied".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let is_dir = canonical_path.is_dir();
+    let name = canonical_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+
+    // Delete the file or folder
+    let result = if is_dir {
+        tokio::fs::remove_dir_all(&canonical_path).await
+    } else {
+        tokio::fs::remove_file(&canonical_path).await
+    };
+
+    match result {
+        Ok(_) => {
+            info!("Deleted successfully: {:?}", canonical_path);
+            (
+                StatusCode::OK,
+                Json(ApiResponse::success(format!(
+                    "{} '{}' deleted successfully",
+                    if is_dir { "Folder" } else { "File" },
+                    name
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to delete: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<String>::error(format!(
+                    "Failed to delete: {}",
+                    e
+                ))),
             )
                 .into_response()
         }

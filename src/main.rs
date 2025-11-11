@@ -10,15 +10,16 @@ mod models;
 use alerts::check_alerts;
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     routing::{delete, get, post},
 };
 use collect_info::detect_system_capabilities;
 use db::db_update;
 use endpoints::{
-    add_alert, add_notif_method, browse_directory, delete_alert, delete_notif_method,
-    download_file, fallback_handler, get_alert_vars, get_alerts, get_container_logs,
-    get_file_content, get_notif_methods, get_serve_dirs, historical_data, req_info, serve_static,
-    ws_handler_d, ws_handler_g, ws_handler_p,
+    add_alert, add_notif_method, browse_directory, create_folder, delete_alert, delete_file,
+    delete_notif_method, download_file, fallback_handler, get_alert_vars, get_alerts,
+    get_container_logs, get_file_content, get_notif_methods, get_serve_dirs, historical_data,
+    move_file, req_info, serve_static, upload_file, ws_handler_d, ws_handler_g, ws_handler_p,
 };
 use log::{debug, error, info};
 use std::net::SocketAddr;
@@ -156,6 +157,13 @@ async fn main() {
         .route("/api/files/browse", get(browse_directory))
         .route("/api/files/content", get(get_file_content))
         .route("/api/files/download", get(download_file))
+        .route(
+            "/api/files/upload",
+            post(upload_file).layer(DefaultBodyLimit::max(config.upload_limit as usize)),
+        )
+        .route("/api/files/create_folder", post(create_folder))
+        .route("/api/files/move", post(move_file))
+        .route("/api/files/delete", delete(delete_file))
         .fallback(fallback_handler)
         .with_state((shared_sys, shared_config.clone()));
 
