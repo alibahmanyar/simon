@@ -84,6 +84,20 @@ chmod +x simon
 
 The web interface will be available at `http://localhost:30000`
 
+**To enable file browsing**, use either environment variable or CLI flag:
+
+```bash
+# Using environment variable
+export SIMON_SERVE_DIRS="/path/to/dir1,/path/to/dir2"
+./simon
+
+# Using CLI flags (can specify multiple directories)
+./simon --serve-dir /path/to/dir1 --serve-dir /path/to/dir2
+
+# Custom port and bind address
+./simon --port 8080 --address 127.0.0.1 --serve-dir /home --serve-dir /var/log
+```
+
 ### Option 2: Docker
 
 ```bash
@@ -95,6 +109,12 @@ docker run -d \
   -v /:/fs:ro \
   -v ./simon-data:/app/simon-data \
   alibahmanyar/simon
+```
+
+**To enable file browsing**, add the `SIMON_SERVE_DIRS` environment variable:
+
+```bash
+-e SIMON_SERVE_DIRS="/fs/home,/fs/var/log"
 ```
 
 ### Option 3: Docker Compose
@@ -119,6 +139,13 @@ Run with: `docker-compose up -d`
 
 > **Note:** The default password for the example hash is `secret`. See [Authentication](docs/SETUP.md#authentication) for instructions on generating your own secure hash.
 
+**To enable file browsing**, add `SIMON_SERVE_DIRS` to the environment section:
+
+```yaml
+environment:
+  SIMON_SERVE_DIRS: "/fs/home,/fs/var/log"
+```
+
 ---
 
 ## Documentation
@@ -131,13 +158,14 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ### Key Configuration Options
 
-| Option | Environment Variable | Default | Description |
-|--------|---------------------|---------|-------------|
-| Port | `SIMON_PORT` | `30000` | Server port |
-| Update Interval | `SIMON_UPDATE_INTERVAL` | `2` | Metrics refresh interval (seconds) |
-| Password Hash | `SIMON_PASSWORD_HASH` | None | Bcrypt hash for authentication |
-| Database Path | `SIMON_DB_PATH` | `./simon-data/simon.db` | SQLite database location |
-| Serve Directories | `SIMON_SERVE_DIRS` | None | Comma-separated paths for file browser |
+| Option | CLI Flag | Environment Variable | Default | Description |
+|--------|----------|---------------------|---------|-------------|
+| Address | `-a`, `--address` | `SIMON_ADDRESS` | `0.0.0.0` | Network address to bind the server to |
+| Port | `-p`, `--port` | `SIMON_PORT` | `30000` | Server port |
+| Update Interval | `-T`, `--update-interval` | `SIMON_UPDATE_INTERVAL` | `2` | Metrics refresh interval (seconds) |
+| Password Hash | `-H`, `--password-hash` | `SIMON_PASSWORD_HASH` | None | Bcrypt hash for authentication |
+| Database Path | `--db-path` | `SIMON_DB_PATH` | `./simon-data/simon.db` | SQLite database location |
+| Serve Directories | `--serve-dir` | `SIMON_SERVE_DIRS` | None | Directories for file browser (use flag multiple times or comma-separated env var) |
 
 See the [Configuration Reference](docs/CONFIGURATION.md) for all available options.
 
