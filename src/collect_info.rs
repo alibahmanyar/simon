@@ -18,7 +18,7 @@ static VALID_FILESYSTEMS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     ])
 });
 
-pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
+pub async fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     info!("Detecting system capabilities");
 
     let mut capabilities = SystemCapabilities {
@@ -106,6 +106,7 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
                 || mount_point.starts_with("/sys")
                 || mount_point.starts_with("/proc")
                 || mount_point.starts_with("/etc")
+                || mount_point.starts_with("/app")
             {
                 return false;
             }
@@ -138,9 +139,13 @@ pub fn detect_system_capabilities(config: &Config) -> SystemCapabilities {
     // Test Docker detection
     if cfg!(target_os = "linux") {
         match Docker::connect_with_local_defaults() {
-            Ok(_) => {
-                capabilities.docker = true;
-                debug!("Docker detection: available");
+            Ok(docker) => {
+                if (docker.ping().await).is_ok() {
+                    capabilities.docker = true;
+                    debug!("Docker detection: available");
+                } else {
+                    debug!("Docker detection: unavailable (ping failed)");
+                }
             }
             Err(e) => {
                 if std::fs::metadata("/var/run/docker.sock").ok().is_some() {
@@ -453,8 +458,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_detect_system_capabilities() {
+    #[tokio::test]
+    async fn test_detect_system_capabilities() {
         use std::time::Instant;
         let now = Instant::now();
 
@@ -468,7 +473,7 @@ mod tests {
             update_interval: 60,
             system_capabilities: SystemCapabilities::default(),
         };
-        let capabilities = detect_system_capabilities(&config);
+        let capabilities = detect_system_capabilities(&config).await;
 
         println!("Elapsed: {:.2?}", now.elapsed());
         println!("System Capabilities:");

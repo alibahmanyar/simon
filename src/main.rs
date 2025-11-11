@@ -59,7 +59,7 @@ async fn main() {
     let sys = System::new();
 
     // Detect system capabilities
-    config.system_capabilities = detect_system_capabilities(&config);
+    config.system_capabilities = detect_system_capabilities(&config).await;
 
     let shared_sys = Arc::new(Mutex::new(sys));
 

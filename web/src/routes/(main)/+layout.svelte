@@ -16,14 +16,13 @@
 	import { capabilities, updateCapabilities } from '$lib/utils.svelte';
 
 	onMount(() => {
-		updateCapabilities();
+		updateCapabilities().then(() => {
+			// Only open Docker WebSocket if Docker capability is available
+			if (capabilities.docker) {
+				setTimeout(docker_ws_open, 2);
+			}
+		});
 		setTimeout(general_ws_open, 2);
-		setTimeout(docker_ws_open, 2);
-
-		return () => {
-			general_ws_close();
-			docker_ws_close();
-		};
 	});
 
 	onDestroy(() => {

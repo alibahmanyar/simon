@@ -14,12 +14,11 @@ export const capabilities = $state<SystemCapabilities>({
 	file_serving: false
 });
 
-export function updateCapabilities() {
-	getSystemCapabilities().then((data) => {
-		if (data.success) {
-			Object.assign(capabilities, data.data);
-		}
-	});
+export async function updateCapabilities() {
+	const data = await getSystemCapabilities();
+	if (data.success) {
+		Object.assign(capabilities, data.data);
+	}
 }
 
 export const types2names: { [key: string]: string } = {
