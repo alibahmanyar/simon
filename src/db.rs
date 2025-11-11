@@ -23,8 +23,8 @@ impl Database {
             row.get::<_, String>(0)
         })?;
         conn.execute("PRAGMA synchronous = NORMAL", [])?;
-        conn.execute("PRAGMA cache_size = 8000", [])?;
-        conn.execute("PRAGMA temp_store = MEMORY", [])?;
+        conn.execute("PRAGMA cache_size = 1000", [])?;
+        conn.execute("PRAGMA temp_store = FILE", [])?;
 
         // Create tables
         for table_name in ["general_s", "general_m", "general_h", "general_d"] {
