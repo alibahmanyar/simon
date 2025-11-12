@@ -179,10 +179,12 @@ pub async fn fallback_handler(
         return req_info(ConnectInfo(addr), headers, request)
             .await
             .into_response();
+    } else if !path.contains("api") { // serve static for non-API paths (delegate to sveltekit router)
+        return serve_static(request).await.into_response();
+    } else {
+        warn!("404 Not Found: {} from IP: {}", path, addr);
+        return StatusCode::NOT_FOUND.into_response();
     }
-
-    // Otherwise, serve static files
-    serve_static(request).await.into_response()
 }
 
 pub async fn req_info(

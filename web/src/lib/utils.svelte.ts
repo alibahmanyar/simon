@@ -19,6 +19,7 @@ export async function updateCapabilities() {
 	if (data.success) {
 		Object.assign(capabilities, data.data);
 	}
+	return data;
 }
 
 export const types2names: { [key: string]: string } = {
