@@ -176,14 +176,15 @@ pub async fn fallback_handler(
     let path = request.uri().path();
 
     if path.ends_with("reqinfo") {
-        return req_info(ConnectInfo(addr), headers, request)
+        req_info(ConnectInfo(addr), headers, request)
             .await
-            .into_response();
-    } else if !path.contains("api") { // serve static for non-API paths (delegate to sveltekit router)
-        return serve_static(request).await.into_response();
+            .into_response()
+    } else if !path.contains("api") {
+        // serve static for non-API paths (delegate to sveltekit router)
+        serve_static(request).await.into_response()
     } else {
         warn!("404 Not Found: {} from IP: {}", path, addr);
-        return StatusCode::NOT_FOUND.into_response();
+        StatusCode::NOT_FOUND.into_response()
     }
 }
 
@@ -1087,30 +1088,16 @@ pub async fn upload_file(
             debug!("Processing file: {}", file_name);
 
             // Clean up the relative path (remove leading slashes, etc.)
-            // Canonicalize the path to prevent directory traversal
-            let mut canonical_file_name = PathBuf::from(file_name.trim_start_matches('/'));
-            match canonical_file_name.canonicalize() {
-                Ok(p) => {
-                    canonical_file_name = p;
-                }
-                Err(_) => {
-                    // return an error if the path cannot be canonicalized
-                    error!("Invalid file path: {}", file_name);
-                    errors.push(format!("{}: Invalid file path", file_name));
-                    continue;
-                }
-            }
+            // Remove .. from the path to prevent directory traversal
+            let canonical_file_name = PathBuf::from(
+                file_name
+                    .trim_start_matches('/')
+                    .replace("../", "")
+                    .replace("/..", ""),
+            );
 
             // Construct the full file path
-            let mut file_path = match canonical_base_path.join(canonical_file_name).canonicalize() {
-                Ok(p) => p,
-                Err(_) => {
-                    // return an error if the path cannot be canonicalized
-                    error!("Invalid file path after join: {}", file_name);
-                    errors.push(format!("{}: Invalid file path", file_name));
-                    continue;
-                }
-            };
+            let mut file_path = canonical_base_path.join(canonical_file_name);
 
             // Check if file exists and rename if necessary
             if file_path.exists() {
@@ -1118,13 +1105,7 @@ pub async fn upload_file(
                 debug!("File exists, renamed to: {:?}", file_path);
             }
 
-            // Validate the final path is still within allowed directories (if file_path is ../sth)
             let file_path_str = file_path.to_str().unwrap();
-            if validate_path_access(file_path_str, &config.serve_dirs).is_none() {
-                warn!("Access denied to final path: {:?}", file_path);
-                errors.push(format!("{}: Access denied", file_path_str));
-                continue;
-            }
 
             // Create parent directories if they don't exist (for folder uploads)
             if let Some(parent) = file_path.parent()
@@ -1292,32 +1273,13 @@ pub async fn create_folder(
     }
 
     // Construct the folder path
-    let canonical_folder_name = match PathBuf::from(folder_name).canonicalize() {
-        Ok(p) => p,
-        Err(_) => {
-            // return an error if the path cannot be canonicalized
-            error!("Invalid folder name: {}", folder_name);
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Invalid folder name".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    };
+    let canonical_folder_name = PathBuf::from(
+        folder_name
+            .trim_start_matches("/")
+            .replace("../", "")
+            .replace("/..", ""),
+    );
     let mut folder_path = canonical_path.join(canonical_folder_name.clone());
-
-    // Validate the final path is still within allowed directories
-    let folder_path_str = folder_path.to_str().unwrap();
-    if validate_path_access(folder_path_str, &config.serve_dirs).is_none() {
-        warn!("Access denied to final path: {:?}", folder_path);
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ApiResponse::<String>::error("Access denied".to_string())),
-        )
-            .into_response();
-    }
 
     // Check if folder exists and rename if necessary
     if folder_path.exists() {
@@ -1366,7 +1328,7 @@ pub async fn move_file(
     }
 
     let source = match params.get("source") {
-        Some(p) => p,
+        Some(p) => p.to_string(),
         None => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -1378,8 +1340,8 @@ pub async fn move_file(
         }
     };
 
-    let destination = match params.get("destination") {
-        Some(d) => d,
+    let mut destination = match params.get("destination") {
+        Some(d) => d.to_string(),
         None => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -1394,7 +1356,7 @@ pub async fn move_file(
     debug!("Moving: {} to {}", source, destination);
 
     // Security check: Ensure the source is within one of the allowed serve_dirs
-    let canonical_source = match validate_path_access(source, &config.serve_dirs) {
+    let canonical_source = match validate_path_access(&source, &config.serve_dirs) {
         Some(p) => p,
         None => {
             warn!("Access denied to path: {}", source);
@@ -1406,8 +1368,26 @@ pub async fn move_file(
         }
     };
 
+    destination = destination
+        .trim_start_matches('/')
+        .replace("../", "")
+        .replace("/..", "");
+    let destination_path = PathBuf::from(&destination);
+    let destination_parent = match destination_path.parent() {
+        Some(p) => p.to_str().unwrap(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Invalid destination path".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
     // Security check: Ensure the destination is within one of the allowed serve_dirs
-    let canonical_destination = match validate_path_access(destination, &config.serve_dirs) {
+    let canonical_destination = match validate_path_access(destination_parent, &config.serve_dirs) {
         Some(p) => p,
         None => {
             warn!("Access denied to path: {}", destination);
