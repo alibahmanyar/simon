@@ -817,6 +817,7 @@ pub async fn browse_directory(
 }
 
 pub async fn download_file(
+    headers: HeaderMap,
     Query(params): Query<std::collections::HashMap<String, String>>,
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
@@ -860,43 +861,176 @@ pub async fn download_file(
         return (StatusCode::BAD_REQUEST, "Cannot download a directory").into_response();
     }
 
-    // Read file contents
-    match tokio::fs::read(&canonical_path).await {
-        Ok(contents) => {
-            let filename = canonical_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("download");
+    // Get file metadata
+    let metadata = match tokio::fs::metadata(&canonical_path).await {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to read file metadata: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to read file metadata: {}", e),
+            )
+                .into_response();
+        }
+    };
 
-            let mime_type = mime_guess::from_path(&canonical_path)
-                .first_or_octet_stream()
-                .to_string();
+    let file_size = metadata.len();
+    let filename = canonical_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("download");
 
-            let content_disposition = if is_inline {
-                format!("inline; filename=\"{}\"", filename)
+    let mime_type = mime_guess::from_path(&canonical_path)
+        .first_or_octet_stream()
+        .to_string();
+
+    let content_disposition = if is_inline {
+        format!("inline; filename=\"{}\"", filename)
+    } else {
+        format!("attachment; filename=\"{}\"", filename)
+    };
+
+    // Check for Range header
+    let range_header = headers.get("range").and_then(|h| h.to_str().ok());
+
+    match range_header {
+        Some(range_str) if range_str.starts_with("bytes=") => {
+            // Parse range request
+            let range_spec = &range_str[6..]; // Skip "bytes="
+
+            // Parse the range (supports single range only for now)
+            let parts: Vec<&str> = range_spec.split('-').collect();
+            if parts.len() != 2 {
+                return (
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    [("Content-Range", format!("bytes */{}", file_size))],
+                    "Invalid range",
+                )
+                    .into_response();
+            }
+
+            let start = if parts[0].is_empty() {
+                // Suffix range: last N bytes
+                if let Ok(suffix_len) = parts[1].parse::<u64>() {
+                    file_size.saturating_sub(suffix_len)
+                } else {
+                    return (
+                        StatusCode::RANGE_NOT_SATISFIABLE,
+                        [("Content-Range", format!("bytes */{}", file_size))],
+                        "Invalid range",
+                    )
+                        .into_response();
+                }
+            } else if let Ok(s) = parts[0].parse::<u64>() {
+                s
             } else {
-                format!("attachment; filename=\"{}\"", filename)
+                return (
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    [("Content-Range", format!("bytes */{}", file_size))],
+                    "Invalid range",
+                )
+                    .into_response();
             };
 
-            (
-                StatusCode::OK,
-                [
-                    ("Content-Type", mime_type.as_str()),
-                    ("Content-Disposition", content_disposition.as_str()),
-                ],
-                contents,
-            )
-                .into_response()
+            let end = if parts[1].is_empty() {
+                file_size - 1
+            } else if let Ok(e) = parts[1].parse::<u64>() {
+                e.min(file_size - 1)
+            } else {
+                return (
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    [("Content-Range", format!("bytes */{}", file_size))],
+                    "Invalid range",
+                )
+                    .into_response();
+            };
+
+            // Validate range
+            if start >= file_size || start > end {
+                return (
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    [("Content-Range", format!("bytes */{}", file_size))],
+                    "Range not satisfiable",
+                )
+                    .into_response();
+            }
+
+            let content_length = end - start + 1;
+
+            debug!(
+                "Serving partial content: bytes {}-{}/{} ({})",
+                start, end, file_size, filename
+            );
+
+            // Read the requested range
+            match read_file_range(&canonical_path, start, content_length).await {
+                Ok(contents) => (
+                    StatusCode::PARTIAL_CONTENT,
+                    [
+                        ("Content-Type", mime_type.as_str()),
+                        ("Content-Disposition", content_disposition.as_str()),
+                        (
+                            "Content-Range",
+                            &format!("bytes {}-{}/{}", start, end, file_size),
+                        ),
+                        ("Accept-Ranges", "bytes"),
+                        ("Content-Length", &content_length.to_string()),
+                    ],
+                    contents,
+                )
+                    .into_response(),
+                Err(e) => {
+                    error!("Failed to read file range: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to read file: {}", e),
+                    )
+                        .into_response()
+                }
+            }
         }
-        Err(e) => {
-            error!("Failed to read file: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to read file: {}", e),
-            )
-                .into_response()
+        _ => {
+            // No range request, serve the entire file
+            match tokio::fs::read(&canonical_path).await {
+                Ok(contents) => (
+                    StatusCode::OK,
+                    [
+                        ("Content-Type", mime_type.as_str()),
+                        ("Content-Disposition", content_disposition.as_str()),
+                        ("Accept-Ranges", "bytes"),
+                        ("Content-Length", &file_size.to_string()),
+                    ],
+                    contents,
+                )
+                    .into_response(),
+                Err(e) => {
+                    error!("Failed to read file: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to read file: {}", e),
+                    )
+                        .into_response()
+                }
+            }
         }
     }
+}
+
+/// Reads a specific range of bytes from a file
+async fn read_file_range(
+    path: &std::path::Path,
+    start: u64,
+    length: u64,
+) -> Result<Vec<u8>, std::io::Error> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    let mut file = tokio::fs::File::open(path).await?;
+    file.seek(std::io::SeekFrom::Start(start)).await?;
+
+    let mut buffer = vec![0u8; length as usize];
+    file.read_exact(&mut buffer).await?;
+
+    Ok(buffer)
 }
 
 pub async fn get_file_content(
