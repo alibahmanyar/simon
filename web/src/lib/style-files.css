@@ -71,8 +71,8 @@
 }
 
 .clear-filter-btn {
-	background: #4dabf7;
-	color: white;
+	background: #22c55e;
+	color: #0f0f13;
 	border: none;
 	padding: 0.5rem 1rem;
 	border-radius: 4px;
@@ -80,10 +80,11 @@
 	font-size: 0.9rem;
 	margin-top: 0.5rem;
 	transition: background 0.2s;
+	font-weight: 600;
 }
 
 .clear-filter-btn:hover {
-	background: #339af0;
+	background: #16a34a;
 }
 
 .header-sort {
@@ -97,7 +98,7 @@
 .breadcrumb {
 	background: none;
 	border: none;
-	color: #4dabf7;
+	color: #4ade80;
 	cursor: pointer;
 	font-size: 0.95rem;
 	padding: 0.25rem 0.5rem;
@@ -115,7 +116,7 @@
 
 .serve-dir-crumb {
 	font-weight: 600;
-	color: #339af0;
+	color: #22c55e;
 }
 
 .file-list {
@@ -219,7 +220,7 @@
 
 .download-button {
 	background: #2a2e39;
-	color: #4dabf7;
+	color: #4ade80;
 	border: none;
 	min-width: 40px;
 	border-radius: 0;
@@ -234,7 +235,7 @@
 
 .download-button:hover {
 	background: #3a3e49;
-	color: #339af0;
+	color: #22c55e;
 }
 
 .more-button {
@@ -374,7 +375,7 @@
 }
 
 .drag-border {
-	border: 4px dashed #4dabf7;
+	border: 4px dashed #4ade80;
 	border-radius: 12px;
 	padding: 3rem 5rem;
 	position: fixed;
@@ -602,7 +603,7 @@
 	border-radius: 3px;
 	overflow-x: auto;
 	word-break: break-all;
-	color: #4dabf7;
+	color: #4ade80;
 }
 
 .upload-actions {
@@ -629,7 +630,7 @@
 
 .upload-action-button:hover {
 	background: #3a3e49;
-	border-color: #4dabf7;
+	border-color: #4ade80;
 	transform: translateY(-2px);
 }
 
@@ -663,7 +664,7 @@
 
 .upload-progress-fill {
 	height: 100%;
-	background: linear-gradient(90deg, #4dabf7, #228be6);
+	background: linear-gradient(90deg, #4ade80, #16a34a);
 	transition: width 0.3s ease;
 	border-radius: 15px;
 }
@@ -673,7 +674,7 @@
 	margin-top: 0.5rem;
 	font-size: 1.1rem;
 	font-weight: 600;
-	color: #4dabf7;
+	color: #4ade80;
 }
 
 .upload-progress-success {
@@ -876,7 +877,7 @@
 
 .text-input:focus {
 	outline: none;
-	border-color: #4dabf7;
+	border-color: #4ade80;
 }
 
 .text-input:disabled {
@@ -892,7 +893,7 @@
 }
 
 .read-only-field code {
-	color: #4dabf7;
+	color: #4ade80;
 	font-family: 'Courier New', monospace;
 	font-size: 0.9rem;
 }
@@ -938,12 +939,12 @@
 }
 
 .primary-button {
-	background: #4dabf7;
-	color: white;
+	background: #22c55e;
+	color: #0f0f13;
 }
 
 .primary-button:hover:not(:disabled) {
-	background: #339af0;
+	background: #16a34a;
 }
 
 .primary-button:disabled {
