@@ -310,7 +310,7 @@
 		if (showFileViewer && e.key === 'Escape') {
 			closeFileViewer();
 		}
-		if (showUploadModal && e.key === 'Escape' && !isUploading) {
+		if (showUploadModal && e.key === 'Escape' && (!isUploading || uploadSuccess)) {
 			closeUploadModal();
 		}
 		if (showRenameModal && e.key === 'Escape' && !isRenaming) {
@@ -469,8 +469,8 @@
 	}
 
 	function closeUploadModal() {
-		if (isUploading) return; // Prevent closing during upload
 		showUploadModal = false;
+		isUploading = false;
 		uploadError = null;
 		uploadSuccess = null;
 		uploadProgress = 0;
@@ -489,18 +489,17 @@
 			uploadProgress = progress;
 		});
 
-		isUploading = false;
-
 		if (result.success) {
 			uploadSuccess = result.data;
 			uploadProgress = 100;
 			// Refresh the directory listing
-			setTimeout(async () => {
-				await browseDir(currentPath);
+			await browseDir(currentPath);
+			setTimeout(() => {
 				closeUploadModal();
-			}, 1500);
+			}, 1200);
 		} else {
 			uploadError = result.error;
+			isUploading = false;
 		}
 	}
 
@@ -917,7 +916,7 @@
 {#if showUploadModal}
 	<div
 		class="modal-backdrop"
-		onclick={() => !isUploading && closeUploadModal()}
+		onclick={() => (!isUploading || uploadSuccess) && closeUploadModal()}
 		role="presentation"
 		transition:fade={{ duration: 200 }}
 	>
@@ -939,7 +938,7 @@
 				<button
 					class="modal-button"
 					onclick={closeUploadModal}
-					disabled={isUploading}
+					disabled={isUploading && !uploadSuccess}
 					title="Close"
 					aria-label="Close upload dialog"
 				>
@@ -948,11 +947,7 @@
 			</div>
 
 			<div class="modal-body">
-				{#if uploadSuccess}
-					<div class="upload-success">
-						<p>✓ {uploadSuccess}</p>
-					</div>
-				{:else if uploadError}
+				{#if uploadError}
 					<div class="upload-error">
 						<p>✗ {uploadError}</p>
 					</div>
@@ -968,7 +963,11 @@
 						<div class="upload-progress-bar">
 							<div class="upload-progress-fill" style="width: {uploadProgress}%"></div>
 						</div>
-						<div class="upload-progress-text">{Math.round(uploadProgress)}%</div>
+						{#if uploadSuccess}
+							<div class="upload-progress-success">✓ {uploadSuccess}</div>
+						{:else}
+							<div class="upload-progress-text">{Math.round(uploadProgress)}%</div>
+						{/if}
 					</div>
 				{:else}
 					<!-- Drag and Drop Zone -->

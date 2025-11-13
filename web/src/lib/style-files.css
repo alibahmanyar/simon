@@ -676,6 +676,17 @@
 	color: #4dabf7;
 }
 
+.upload-progress-success {
+	text-align: center;
+	margin-top: 0.5rem;
+	padding: 0.75rem;
+	background: #2b8a3e;
+	color: #d3f9d8;
+	border: 1px solid #37b24d;
+	border-radius: 4px;
+	font-weight: 500;
+}
+
 .upload-success {
 	padding: 1rem;
 	background: #2b8a3e;
