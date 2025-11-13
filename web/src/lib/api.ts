@@ -207,3 +207,108 @@ export async function getFileContent(
 		};
 	}
 }
+
+/**
+ * Upload files to a directory with progress tracking
+ */
+export async function uploadFiles(
+	path: string,
+	files: File[],
+	onProgress?: (progress: number) => void
+): Promise<{ success: true; data: string } | { success: false; error: string }> {
+	try {
+		const formData = new FormData();
+		formData.append('path', path);
+
+		// Add all files to the form data
+		files.forEach((file) => {
+			// Use webkitRelativePath for folder uploads, fallback to name for individual files
+			const relativePath = file.webkitRelativePath || file.name;
+			formData.append('file', file, relativePath);
+		});
+
+		const xhr = new XMLHttpRequest();
+
+		return new Promise((resolve) => {
+			// Track upload progress
+			xhr.upload.addEventListener('progress', (e) => {
+				if (e.lengthComputable && onProgress) {
+					const percentComplete = (e.loaded / e.total) * 100;
+					onProgress(percentComplete);
+				}
+			});
+
+			xhr.addEventListener('load', () => {
+				if (xhr.status === 200) {
+					try {
+						const result: ApiResponse<string> = JSON.parse(xhr.responseText);
+						if (result.success) {
+							resolve({ success: true, data: result.data || 'Upload successful' });
+						} else {
+							resolve({ success: false, error: result.error || 'Upload failed' });
+						}
+					} catch {
+						resolve({ success: false, error: 'Invalid response from server' });
+					}
+				} else {
+					resolve({ success: false, error: `Upload failed with status ${xhr.status}` });
+				}
+			});
+
+			xhr.addEventListener('error', () => {
+				resolve({ success: false, error: 'Network error during upload' });
+			});
+
+			xhr.addEventListener('abort', () => {
+				resolve({ success: false, error: 'Upload cancelled' });
+			});
+
+			xhr.open('POST', url('api/files/upload'));
+			xhr.send(formData);
+		});
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to upload files'
+		};
+	}
+}
+
+/**
+ * Move/rename a file or folder
+ */
+export async function moveFile(source: string, destination: string) {
+	return apiFetch<string>(`api/files/move`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ source, destination })
+	});
+}
+
+/**
+ * Delete a file or folder
+ */
+export async function deleteFile(path: string) {
+	return apiFetch<string>(`api/files/delete`, {
+		method: 'DELETE',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ path })
+	});
+}
+
+/**
+ * Create a new folder
+ */
+export async function createFolder(path: string, name: string) {
+	return apiFetch<string>(`api/files/create_folder`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ path, name })
+	});
+}

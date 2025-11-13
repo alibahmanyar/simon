@@ -1,7 +1,10 @@
 use crate::collect_info;
 use crate::config::Config;
 use crate::db::Database;
-use crate::models::{self, ApiResponse, DirectoryListing, FileEntry, NotificationMethod};
+use crate::models::{
+    self, ApiResponse, CreateFolderPayload, DirectoryListing, FileEntry, FilePathPayload,
+    MoveFilePayload, NotificationMethod,
+};
 use axum::Json;
 use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
@@ -1341,8 +1344,8 @@ pub async fn upload_file(
 }
 
 pub async fn create_folder(
-    Query(params): Query<std::collections::HashMap<String, String>>,
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+    body: Result<Json<CreateFolderPayload>, JsonRejection>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return (
@@ -1354,31 +1357,23 @@ pub async fn create_folder(
             .into_response();
     }
 
-    let path = match params.get("path") {
-        Some(p) => p,
-        None => {
+    let payload = match body {
+        Ok(Json(payload)) => payload,
+        Err(err) => {
+            error!("Invalid create_folder JSON payload: {}", err);
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Missing path parameter".to_string(),
-                )),
+                Json(ApiResponse::<()>::error(format!(
+                    "Invalid JSON payload: {}",
+                    err
+                ))),
             )
                 .into_response();
         }
     };
 
-    let folder_name = match params.get("name") {
-        Some(n) => n,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Missing name parameter".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    };
+    let path = &payload.path;
+    let folder_name = &payload.name;
 
     debug!("Creating folder: {} in {}", folder_name, path);
 
@@ -1448,8 +1443,8 @@ pub async fn create_folder(
 }
 
 pub async fn move_file(
-    Query(params): Query<std::collections::HashMap<String, String>>,
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+    body: Result<Json<MoveFilePayload>, JsonRejection>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return (
@@ -1461,52 +1456,62 @@ pub async fn move_file(
             .into_response();
     }
 
-    let source = match params.get("source") {
-        Some(p) => p.to_string(),
-        None => {
+    let payload = match body {
+        Ok(Json(payload)) => payload,
+        Err(err) => {
+            error!("Invalid move_file JSON payload: {}", err);
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Missing source parameter".to_string(),
-                )),
+                Json(ApiResponse::<()>::error(format!(
+                    "Invalid JSON payload: {}",
+                    err
+                ))),
             )
                 .into_response();
         }
     };
 
-    let mut destination = match params.get("destination") {
-        Some(d) => d.to_string(),
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Missing destination parameter".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    };
+    let source = &payload.source;
+    let mut destination = payload.destination.clone();
 
     debug!("Moving: {} to {}", source, destination);
 
-    // Security check: Ensure the source is within one of the allowed serve_dirs
-    let canonical_source = match validate_path_access(&source, &config.serve_dirs) {
-        Some(p) => p,
+    let source_path = PathBuf::from(source.clone());
+    let mut destination_path = PathBuf::from(&destination);
+    destination = destination.replace("../", "").replace("/..", "");
+
+    if destination_path.is_dir() {
+        if let Some(file_name) = source_path.file_name() {
+            destination_path.push(file_name);
+        }
+        println!(
+            "Destination is a directory, new destination: {:?}",
+            destination_path
+        );
+    }
+
+    let source_parent = match source_path.parent() {
+        Some(p) => p.to_str().unwrap(),
         None => {
-            warn!("Access denied to path: {}", source);
             return (
-                StatusCode::FORBIDDEN,
-                Json(ApiResponse::<String>::error("Access denied".to_string())),
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<String>::error(
+                    "Invalid source path".to_string(),
+                )),
             )
                 .into_response();
         }
     };
+    // Security check: Ensure the source is within one of the allowed serve_dirs
+    if validate_path_access(source_parent, &config.serve_dirs).is_none() {
+        warn!("Access denied to path: {}", source);
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error("Access denied".to_string())),
+        )
+            .into_response();
+    };
 
-    destination = destination
-        .trim_start_matches('/')
-        .replace("../", "")
-        .replace("/..", "");
-    let destination_path = PathBuf::from(&destination);
     let destination_parent = match destination_path.parent() {
         Some(p) => p.to_str().unwrap(),
         None => {
@@ -1521,21 +1526,19 @@ pub async fn move_file(
     };
 
     // Security check: Ensure the destination is within one of the allowed serve_dirs
-    let canonical_destination = match validate_path_access(destination_parent, &config.serve_dirs) {
-        Some(p) => p,
-        None => {
-            warn!("Access denied to path: {}", destination);
-            return (
-                StatusCode::FORBIDDEN,
-                Json(ApiResponse::<String>::error("Access denied".to_string())),
-            )
-                .into_response();
-        }
+    if validate_path_access(destination_parent, &config.serve_dirs).is_none() {
+        warn!("Access denied to path: {}", destination);
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error("Access denied".to_string())),
+        )
+            .into_response();
     };
 
     // Check if target already exists
-    if canonical_destination.exists() {
-        let name = canonical_destination
+    println!("Checking if destination exists: {:?}", destination_path);
+    if destination_path.exists() {
+        let name = destination_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
@@ -1550,13 +1553,13 @@ pub async fn move_file(
     }
 
     // Move/rename the file/folder
-    match tokio::fs::rename(&canonical_source, &canonical_destination).await {
+    match tokio::fs::rename(&source_path, &destination_path).await {
         Ok(_) => {
             info!(
                 "Moved successfully: {:?} -> {:?}",
-                canonical_source, canonical_destination
+                source_path, destination_path
             );
-            let name = canonical_destination
+            let name = destination_path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown");
@@ -1584,8 +1587,8 @@ pub async fn move_file(
 }
 
 pub async fn delete_file(
-    Query(params): Query<std::collections::HashMap<String, String>>,
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+    body: Result<Json<FilePathPayload>, JsonRejection>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return (
@@ -1597,18 +1600,22 @@ pub async fn delete_file(
             .into_response();
     }
 
-    let path = match params.get("path") {
-        Some(p) => p,
-        None => {
+    let payload = match body {
+        Ok(Json(payload)) => payload,
+        Err(err) => {
+            error!("Invalid delete_file JSON payload: {}", err);
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Missing path parameter".to_string(),
-                )),
+                Json(ApiResponse::<()>::error(format!(
+                    "Invalid JSON payload: {}",
+                    err
+                ))),
             )
                 .into_response();
         }
     };
+
+    let path = &payload.path;
 
     debug!("Deleting: {}", path);
 

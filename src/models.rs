@@ -250,3 +250,20 @@ pub struct DirectoryListing {
     pub path: String,
     pub entries: Vec<FileEntry>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FilePathPayload {
+    pub path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateFolderPayload {
+    pub path: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MoveFilePayload {
+    pub source: String,
+    pub destination: String,
+}
