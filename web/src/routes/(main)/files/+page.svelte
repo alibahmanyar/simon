@@ -90,6 +90,11 @@
 	// Options menu state
 	let showOptionsMenu = $state<string | null>(null); // Stores the path of the file with open menu
 
+	// File info modal state
+	let showFileInfoModal = $state(false);
+	let fileInfoEntry = $state<FileEntry | null>(null);
+	let fileInfoPath = $state('');
+
 	// Rename modal state
 	let showRenameModal = $state(false);
 	let renameFilePath = $state('');
@@ -328,6 +333,9 @@
 		if (showCreateFolderModal && e.key === 'Escape' && !isCreatingFolder) {
 			closeCreateFolderModal();
 		}
+		if (showFileInfoModal && e.key === 'Escape') {
+			closeFileInfoModal();
+		}
 		if (showOptionsMenu && e.key === 'Escape') {
 			showOptionsMenu = null;
 		}
@@ -354,6 +362,19 @@
 		moveFileName = name;
 		moveDestination = currentPath; // Default to current directory
 		moveError = null;
+	}
+
+	function handleShowInfo(path: string, entry: FileEntry) {
+		showOptionsMenu = null;
+		showFileInfoModal = true;
+		fileInfoEntry = entry;
+		fileInfoPath = path;
+	}
+
+	function closeFileInfoModal() {
+		showFileInfoModal = false;
+		fileInfoEntry = null;
+		fileInfoPath = '';
 	}
 
 	async function handleDelete(path: string, name: string, isDir: boolean) {
@@ -641,7 +662,7 @@
 							aria-label="Browse directory {dir}"
 						>
 							<span class="file-icon" aria-hidden="true">📁</span>
-							<span class="file-name">{dir}</span>
+							<span class="file-name" title={dir}>{dir}</span>
 						</button>
 					{/each}
 				</div>
@@ -821,13 +842,12 @@
 									<span class="file-icon" aria-hidden="true">
 										{getFileIcon(entry.name, entry.is_dir)}
 									</span>
-									<span class="file-name">{entry.name}</span>
+									<span class="file-name" title={entry.name}>{entry.name}</span>
 									<span class="file-permissions">{entry.permissions}</span>
 									<span class="file-size">{entry.is_dir ? '-' : formatBytes(entry.size)}</span>
 									<span class="file-modified">{formatDate(entry.modified)}</span>
 									<span class="file-actions"></span>
 								</button>
-
 								{#if entry.is_dir}
 									<div class="download-button-spacer"></div>
 								{:else}
@@ -867,6 +887,30 @@
 
 									{#if showOptionsMenu === fullPath}
 										<div class="options-menu" transition:fade={{ duration: 150 }}>
+											<button
+												class="option-item"
+												onclick={(e) => {
+													e.stopPropagation();
+													handleShowInfo(fullPath, entry);
+												}}
+											>
+												<svg
+													class="option-icon"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<circle cx="12" cy="12" r="10"></circle>
+													<line x1="12" y1="16" x2="12" y2="12"></line>
+													<line x1="12" y1="8" x2="12.01" y2="8"></line>
+												</svg>
+												<span>Info</span>
+											</button>
 											<button
 												class="option-item"
 												onclick={(e) => {
@@ -1207,6 +1251,219 @@
 						</button>
 					</div>
 				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- File Info Modal -->
+{#if showFileInfoModal && fileInfoEntry}
+	<div
+		class="modal-backdrop"
+		onclick={closeFileInfoModal}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content file-info-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="file-info-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="file-info-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<circle cx="12" cy="12" r="10"></circle>
+						<line x1="12" y1="16" x2="12" y2="12"></line>
+						<line x1="12" y1="8" x2="12.01" y2="8"></line>
+					</svg>
+					<span>File Information</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeFileInfoModal}
+					title="Close"
+					aria-label="Close file info dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="file-info-container">
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+								<polyline points="14 2 14 8 20 8"></polyline>
+							</svg>
+							<span>Name:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{fileInfoEntry.name}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+								></path>
+							</svg>
+							<span>Type:</span>
+						</div>
+						<div class="file-info-value">
+							<span class="file-type-badge">
+								{fileInfoEntry.is_dir
+									? '📁 Directory'
+									: `📄 File${getFileExtension(fileInfoEntry.name) ? ` (.${getFileExtension(fileInfoEntry.name)})` : ''}`}
+							</span>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+								<polyline points="13 2 13 9 20 9"></polyline>
+							</svg>
+							<span>Size:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{formatBytes(fileInfoEntry.size)}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+								<line x1="16" y1="2" x2="16" y2="6"></line>
+								<line x1="8" y1="2" x2="8" y2="6"></line>
+								<line x1="3" y1="10" x2="21" y2="10"></line>
+							</svg>
+							<span>Modified:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{formatDate(fileInfoEntry.modified)}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+								<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+							</svg>
+							<span>Permissions:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{fileInfoEntry.permissions}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+							</svg>
+							<span>Full Path:</span>
+						</div>
+						<div class="file-info-value file-info-path">
+							<code>{fileInfoPath}</code>
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button class="primary-button" onclick={closeFileInfoModal}>Close</button>
+				</div>
 			</div>
 		</div>
 	</div>
