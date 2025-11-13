@@ -539,6 +539,10 @@
 	}
 
 	async function handleDrop(e: DragEvent) {
+		if (currentPath === '') {
+			// Do not allow dropping when not in a directory
+			return;
+		}
 		e.preventDefault();
 		e.stopPropagation();
 		isDragging = false;
@@ -564,6 +568,8 @@
 			// Create a FileList-like object
 			const dataTransfer = new DataTransfer();
 			files.forEach((file) => dataTransfer.items.add(file));
+
+			openUploadModal();
 			handleFileUpload(dataTransfer.files);
 		}
 	}
@@ -592,7 +598,14 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} onclick={() => (showOptionsMenu = null)} />
+<svelte:window
+	onkeydown={handleKeydown}
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
+	onclick={() => (showOptionsMenu = null)}
+/>
 
 {#if is_loading}
 	<div class="loading">
@@ -959,20 +972,8 @@
 					</div>
 				{:else}
 					<!-- Drag and Drop Zone -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div
-						class="drag-drop-zone"
-						class:dragging={isDragging}
-						ondragenter={handleDragEnter}
-						ondragleave={handleDragLeave}
-						ondragover={handleDragOver}
-						ondrop={handleDrop}
-					>
-						<div class="drag-drop-content">
-							<span class="drag-drop-icon">📄</span>
-							<p class="drag-drop-title">Drag and drop files or folders here</p>
-							<p class="drag-drop-subtitle">or</p>
-						</div>
+					<div class="drag-hint">
+						Drag and drop files or folders to upload <br /><br /> Or
 					</div>
 
 					<div class="upload-actions">
@@ -1053,6 +1054,17 @@
 						{isRenaming ? 'Renaming...' : 'Rename'}
 					</button>
 				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if isDragging && currentPath !== ''}
+	<div class="drag-overlay" class:visible={isDragging}>
+		<div class="drag-border">
+			<div class="drag-overlay-content">
+				<span class="drag-overlay-icon">📤</span>
+				<p class="drag-overlay-text">Drop files or folders to upload</p>
 			</div>
 		</div>
 	</div>

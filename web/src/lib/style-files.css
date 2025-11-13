@@ -359,6 +359,45 @@
 	background: #3a3e49;
 }
 
+.drag-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.8);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	padding: 1rem;
+}
+
+.drag-border {
+	border: 4px dashed #4dabf7;
+	border-radius: 12px;
+	padding: 3rem 5rem;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	margin: 3%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.drag-overlay-content {
+	text-align: center;
+	align-items: center;
+	line-height: 3em;
+	color: #d1d4dc;
+	font-size: 1.3rem;
+	pointer-events: none;
+	user-select: none;
+}
+
 /* Modal styles */
 .modal-backdrop {
 	position: fixed;
@@ -520,46 +559,6 @@
 
 .upload-modal {
 	max-width: 500px;
-}
-
-.drag-drop-zone {
-	padding: 3rem 2rem;
-	background: #2a2e39;
-	border: 3px dashed #3a3e49;
-	border-radius: 12px;
-	margin-bottom: 1.5rem;
-	transition: all 0.3s ease;
-	text-align: center;
-	cursor: pointer;
-}
-
-.drag-drop-zone:hover {
-	background: #3a3e49;
-	border-color: #4dabf7;
-}
-
-.drag-drop-zone.dragging {
-	background: #3a3e49;
-	border-color: #4dabf7;
-	border-style: solid;
-	transform: scale(1.02);
-	box-shadow: 0 0 20px rgba(77, 171, 247, 0.3);
-}
-
-.drag-drop-content {
-	pointer-events: none;
-}
-
-.drag-drop-icon {
-	font-size: 4rem;
-	display: block;
-	margin-bottom: 1rem;
-	opacity: 0.7;
-}
-
-.drag-drop-zone.dragging .drag-drop-icon {
-	opacity: 1;
-	animation: bounce 0.5s ease-in-out;
 }
 
 @keyframes bounce {
@@ -893,6 +892,16 @@
 	color: #9ca3af;
 	font-size: 0.8rem;
 	line-height: 1.4;
+}
+
+.drag-hint {
+	display: block;
+	margin: 1rem 0;
+	color: #d1d4dc;
+	font-size: 1rem;
+	line-height: 1.4;
+	align-items: center;
+	text-align: center;
 }
 
 .modal-footer {
