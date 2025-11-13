@@ -32,6 +32,33 @@
 	background: rgba(255, 255, 255, 0.08);
 }
 
+.icon-button {
+	background: none;
+	color: #9ca3af;
+	border: none;
+	padding: 0.5rem;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+	background: rgba(255, 255, 255, 0.05);
+	color: #e1e1e3;
+}
+
+.icon-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.icon-button svg {
+	display: block;
+}
+
 .controls-bar {
 	display: flex;
 	align-items: center;
@@ -233,6 +260,10 @@
 	padding: 0.75rem;
 }
 
+.download-button svg {
+	display: block;
+}
+
 .download-button:hover {
 	background: #3a3e49;
 	color: #22c55e;
@@ -311,9 +342,11 @@
 }
 
 .option-icon {
-	font-size: 1rem;
 	width: 1.2rem;
-	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
 }
 
 .action-buttons-spacer {
@@ -397,6 +430,13 @@
 	font-size: 1.3rem;
 	pointer-events: none;
 	user-select: none;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.drag-overlay-content svg {
+	color: #4ade80;
 }
 
 /* Modal styles */
@@ -442,6 +482,10 @@
 	color: #d1d4dc;
 }
 
+.modal-title svg {
+	flex-shrink: 0;
+}
+
 .modal-title .file-icon {
 	font-size: 1.5rem;
 }
@@ -464,6 +508,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.modal-button svg {
+	display: block;
 }
 
 .modal-button:hover {
@@ -535,6 +583,13 @@
 	font-weight: 600;
 	transition: background 0.2s;
 	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.action-button svg {
+	flex-shrink: 0;
 }
 
 .action-button:hover {
@@ -626,6 +681,10 @@
 	align-items: center;
 	gap: 0.5rem;
 	font-size: 0.95rem;
+}
+
+.upload-action-button svg {
+	flex-shrink: 0;
 }
 
 .upload-action-button:hover {
