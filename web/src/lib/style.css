@@ -190,11 +190,14 @@ a:active {
 
 .info-label {
 	opacity: 0.8;
+	margin-right: 10px;
 }
 
 .info-value {
 	font-weight: 600;
 	color: #3b82f6;
+	overflow: hidden;
+	overflow-wrap: anywhere;
 }
 
 .bar {
@@ -256,6 +259,7 @@ a:active {
 	color: #3b82f6;
 	display: block;
 	margin-top: 0.5rem;
+	overflow: hidden;
 }
 
 .uptime-value {
