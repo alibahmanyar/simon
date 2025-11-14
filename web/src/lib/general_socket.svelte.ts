@@ -37,8 +37,24 @@ function scheduleReconnect() {
 }
 
 export function close_ws() {
+	// Cancel any pending reconnection
+	if (reconnectTimeout !== null) {
+		clearTimeout(reconnectTimeout);
+		reconnectTimeout = null;
+	}
+	isReconnecting = false;
+
 	if (g_ws !== null) {
-		g_ws.close();
+		try {
+			g_ws.onopen = null;
+			g_ws.onclose = null;
+			g_ws.onerror = null;
+			g_ws.onmessage = null;
+			g_ws.close();
+		} catch (e) {
+			console.error('Error while closing general WebSocket:', e);
+		}
+		g_ws = null;
 	}
 }
 

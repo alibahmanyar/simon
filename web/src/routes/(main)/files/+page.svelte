@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { getServeDirs, browseDirectory, getFileContent } from '$lib/api';
+	import {
+		getServeDirs,
+		browseDirectory,
+		getFileContent,
+		uploadFiles,
+		moveFile,
+		deleteFile,
+		createFolder
+	} from '$lib/api';
 	import type { FileEntry } from '$lib/types';
 	import '$lib/style-files.css';
 	import {
@@ -16,6 +24,29 @@
 	import { formatBytes, url } from '$lib/utils.svelte';
 	import { highlightElement, type ShjLanguage } from '@speed-highlight/core';
 	import '@speed-highlight/core/themes/atom-dark.css';
+
+	// TypeScript definitions for FileSystem API
+	interface FileSystemEntry {
+		isFile: boolean;
+		isDirectory: boolean;
+		name: string;
+		fullPath: string;
+	}
+
+	interface FileSystemFileEntry extends FileSystemEntry {
+		file(successCallback: (file: File) => void, errorCallback?: (error: Error) => void): void;
+	}
+
+	interface FileSystemDirectoryEntry extends FileSystemEntry {
+		createReader(): FileSystemDirectoryReader;
+	}
+
+	interface FileSystemDirectoryReader {
+		readEntries(
+			successCallback: (entries: FileSystemEntry[]) => void,
+			errorCallback?: (error: Error) => void
+		): void;
+	}
 
 	// Constants
 	const MAX_TEXT_FILE_SIZE = 102400; // 100KB
@@ -40,10 +71,51 @@
 	let fileError = $state<string | null>(null);
 	let copySuccess = $state(false);
 
+	// Upload state
+	let showUploadModal = $state(false);
+	let isUploading = $state(false);
+	let uploadProgress = $state(0);
+	let uploadError = $state<string | null>(null);
+	let uploadSuccess = $state<string | null>(null);
+	let fileInputRef: HTMLInputElement;
+	let folderInputRef: HTMLInputElement;
+	let isDragging = $state(false);
+	let dragCounter = $state(0);
+
 	// Filter and sort state
 	let filterText = $state('');
 	let sortBy = $state<'name' | 'size' | 'modified'>('name');
 	let sortDirection = $state<'asc' | 'desc'>('asc');
+
+	// Options menu state
+	let showOptionsMenu = $state<string | null>(null); // Stores the path of the file with open menu
+
+	// File info modal state
+	let showFileInfoModal = $state(false);
+	let fileInfoEntry = $state<FileEntry | null>(null);
+	let fileInfoPath = $state('');
+
+	// Rename modal state
+	let showRenameModal = $state(false);
+	let renameFilePath = $state('');
+	let renameFileName = $state('');
+	let newFileName = $state('');
+	let isRenaming = $state(false);
+	let renameError = $state<string | null>(null);
+
+	// Move modal state
+	let showMoveModal = $state(false);
+	let moveFilePath = $state('');
+	let moveFileName = $state('');
+	let moveDestination = $state('');
+	let isMoving = $state(false);
+	let moveError = $state<string | null>(null);
+
+	// Create folder modal state
+	let showCreateFolderModal = $state(false);
+	let newFolderName = $state('');
+	let isCreatingFolder = $state(false);
+	let createFolderError = $state<string | null>(null);
 
 	// Derived filtered and sorted entries
 	let filteredEntries = $derived.by(() => {
@@ -106,6 +178,12 @@
 				? currentServeDir
 				: `${currentServeDir}/${pathSegments.slice(0, index + 1).join('/')}`;
 		await browseDir(path);
+	}
+
+	async function refreshCurrentDirectory() {
+		if (currentPath) {
+			await browseDir(currentPath);
+		}
 	}
 
 	function goBack() {
@@ -243,10 +321,317 @@
 		if (showFileViewer && e.key === 'Escape') {
 			closeFileViewer();
 		}
+		if (showUploadModal && e.key === 'Escape' && (!isUploading || uploadSuccess)) {
+			closeUploadModal();
+		}
+		if (showRenameModal && e.key === 'Escape' && !isRenaming) {
+			closeRenameModal();
+		}
+		if (showMoveModal && e.key === 'Escape' && !isMoving) {
+			closeMoveModal();
+		}
+		if (showCreateFolderModal && e.key === 'Escape' && !isCreatingFolder) {
+			closeCreateFolderModal();
+		}
+		if (showFileInfoModal && e.key === 'Escape') {
+			closeFileInfoModal();
+		}
+		if (showOptionsMenu && e.key === 'Escape') {
+			showOptionsMenu = null;
+		}
+	}
+
+	function toggleOptionsMenu(path: string, e: MouseEvent) {
+		e.stopPropagation();
+		showOptionsMenu = showOptionsMenu === path ? null : path;
+	}
+
+	function handleRename(path: string, currentName: string) {
+		showOptionsMenu = null;
+		showRenameModal = true;
+		renameFilePath = path;
+		renameFileName = currentName;
+		newFileName = currentName;
+		renameError = null;
+	}
+
+	function handleMove(path: string, name: string) {
+		showOptionsMenu = null;
+		showMoveModal = true;
+		moveFilePath = path;
+		moveFileName = name;
+		moveDestination = currentPath; // Default to current directory
+		moveError = null;
+	}
+
+	function handleShowInfo(path: string, entry: FileEntry) {
+		showOptionsMenu = null;
+		showFileInfoModal = true;
+		fileInfoEntry = entry;
+		fileInfoPath = path;
+	}
+
+	function closeFileInfoModal() {
+		showFileInfoModal = false;
+		fileInfoEntry = null;
+		fileInfoPath = '';
+	}
+
+	async function handleDelete(path: string, name: string, isDir: boolean) {
+		showOptionsMenu = null;
+		const itemType = isDir ? 'folder' : 'file';
+		const confirmed = confirm(
+			`Are you sure you want to delete this ${itemType} "${name}"?\n\nThis action cannot be undone.`
+		);
+		if (!confirmed) return;
+
+		const result = await deleteFile(path);
+
+		if (result.success) {
+			// Refresh the directory listing
+			await browseDir(currentPath);
+		} else {
+			alert(`Failed to delete ${itemType}: ${result.error}`);
+		}
+	}
+
+	async function performRename() {
+		if (!newFileName.trim() || newFileName === renameFileName) {
+			renameError = 'Please enter a different name';
+			return;
+		}
+
+		isRenaming = true;
+		renameError = null;
+
+		// Construct the destination path (same directory, new name)
+		const pathParts = renameFilePath.split('/');
+		pathParts[pathParts.length - 1] = newFileName.trim();
+		const destination = pathParts.join('/');
+
+		const result = await moveFile(renameFilePath, destination);
+		isRenaming = false;
+
+		if (result.success) {
+			showRenameModal = false;
+			// Refresh the directory listing
+			await browseDir(currentPath);
+		} else {
+			renameError = result.error;
+		}
+	}
+
+	async function performMove() {
+		if (!moveDestination.trim()) {
+			moveError = 'Please enter a destination path';
+			return;
+		}
+
+		isMoving = true;
+		moveError = null;
+
+		const result = await moveFile(moveFilePath, moveDestination.trim());
+		isMoving = false;
+
+		if (result.success) {
+			showMoveModal = false;
+			// Refresh the directory listing
+			await browseDir(currentPath);
+		} else {
+			moveError = result.error;
+		}
+	}
+
+	function closeRenameModal() {
+		if (isRenaming) return;
+		showRenameModal = false;
+		renameError = null;
+	}
+
+	function closeMoveModal() {
+		if (isMoving) return;
+		showMoveModal = false;
+		moveError = null;
+	}
+
+	function openCreateFolderModal() {
+		showCreateFolderModal = true;
+		newFolderName = '';
+		createFolderError = null;
+	}
+
+	function closeCreateFolderModal() {
+		if (isCreatingFolder) return;
+		showCreateFolderModal = false;
+		newFolderName = '';
+		createFolderError = null;
+	}
+
+	async function performCreateFolder() {
+		if (!newFolderName.trim()) {
+			createFolderError = 'Please enter a folder name';
+			return;
+		}
+
+		isCreatingFolder = true;
+		createFolderError = null;
+
+		const result = await createFolder(currentPath, newFolderName.trim());
+		isCreatingFolder = false;
+
+		if (result.success) {
+			showCreateFolderModal = false;
+			// Refresh the directory listing
+			await browseDir(currentPath);
+		} else {
+			createFolderError = result.error;
+		}
+	}
+
+	function openUploadModal() {
+		showUploadModal = true;
+		uploadError = null;
+		uploadSuccess = null;
+		uploadProgress = 0;
+	}
+
+	function closeUploadModal() {
+		showUploadModal = false;
+		isUploading = false;
+		uploadError = null;
+		uploadSuccess = null;
+		uploadProgress = 0;
+	}
+
+	async function handleFileUpload(files: FileList | null) {
+		if (!files || files.length === 0) return;
+
+		isUploading = true;
+		uploadError = null;
+		uploadSuccess = null;
+		uploadProgress = 0;
+
+		const fileArray = Array.from(files);
+		const result = await uploadFiles(currentPath, fileArray, (progress) => {
+			uploadProgress = progress;
+		});
+
+		if (result.success) {
+			uploadSuccess = result.data;
+			uploadProgress = 100;
+			// Refresh the directory listing
+			await browseDir(currentPath);
+			setTimeout(() => {
+				closeUploadModal();
+			}, 1200);
+		} else {
+			uploadError = result.error;
+			isUploading = false;
+		}
+	}
+
+	function triggerFileUpload() {
+		fileInputRef?.click();
+	}
+
+	function triggerFolderUpload() {
+		folderInputRef?.click();
+	}
+
+	function handleDragEnter(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter++;
+		if (e.dataTransfer?.types.includes('Files')) {
+			isDragging = true;
+		}
+	}
+
+	function handleDragLeave(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter--;
+		if (dragCounter === 0) {
+			isDragging = false;
+		}
+	}
+
+	function handleDragOver(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = 'copy';
+		}
+	}
+
+	async function handleDrop(e: DragEvent) {
+		if (currentPath === '') {
+			// Do not allow dropping when not in a directory
+			return;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+		isDragging = false;
+		dragCounter = 0;
+
+		const items = e.dataTransfer?.items;
+		if (!items) return;
+
+		const files: File[] = [];
+
+		// Process all dropped items (files and folders)
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			if (item.kind === 'file') {
+				const entry = item.webkitGetAsEntry();
+				if (entry) {
+					await processEntry(entry, files);
+				}
+			}
+		}
+
+		if (files.length > 0) {
+			// Create a FileList-like object
+			const dataTransfer = new DataTransfer();
+			files.forEach((file) => dataTransfer.items.add(file));
+
+			openUploadModal();
+			handleFileUpload(dataTransfer.files);
+		}
+	}
+
+	async function processEntry(entry: FileSystemEntry, files: File[], path = '') {
+		if (entry.isFile) {
+			const fileEntry = entry as FileSystemFileEntry;
+			const file = await new Promise<File>((resolve, reject) => {
+				fileEntry.file(resolve, reject);
+			});
+			// Create a new File object with the full path
+			const fullPath = path ? `${path}/${file.name}` : file.name;
+			const newFile = new File([file], fullPath, { type: file.type });
+			files.push(newFile);
+		} else if (entry.isDirectory) {
+			const dirEntry = entry as FileSystemDirectoryEntry;
+			const reader = dirEntry.createReader();
+			const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+				reader.readEntries(resolve, reject);
+			});
+			const newPath = path ? `${path}/${entry.name}` : entry.name;
+			for (const childEntry of entries) {
+				await processEntry(childEntry, files, newPath);
+			}
+		}
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window
+	onkeydown={handleKeydown}
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
+	onclick={() => (showOptionsMenu = null)}
+/>
 
 {#if is_loading}
 	<div class="loading">
@@ -277,7 +662,7 @@
 							aria-label="Browse directory {dir}"
 						>
 							<span class="file-icon" aria-hidden="true">📁</span>
-							<span class="file-name">{dir}</span>
+							<span class="file-name" title={dir}>{dir}</span>
 						</button>
 					{/each}
 				</div>
@@ -287,6 +672,28 @@
 			<div class="card">
 				<div class="browser-header">
 					<button class="back-button" onclick={goBack} aria-label="Go back"> ← Back </button>
+					<button
+						class="icon-button refresh-button"
+						onclick={refreshCurrentDirectory}
+						aria-label="Refresh directory"
+						title="Refresh"
+						disabled={is_loading}
+					>
+						<svg
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="23 4 23 10 17 10"></polyline>
+							<polyline points="1 20 1 14 7 14"></polyline>
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+						</svg>
+					</button>
 					<div class="breadcrumbs" role="navigation" aria-label="Breadcrumb navigation">
 						<button
 							class="breadcrumb serve-dir-crumb"
@@ -305,6 +712,54 @@
 								{segment}
 							</button>
 						{/each}
+					</div>
+					<div class="header-actions">
+						<button
+							class="action-button"
+							onclick={openCreateFolderModal}
+							aria-label="Create new folder"
+							title="Create folder"
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+								></path>
+								<line x1="12" y1="11" x2="12" y2="17"></line>
+								<line x1="9" y1="14" x2="15" y2="14"></line>
+							</svg>
+							New Folder
+						</button>
+						<button
+							class="action-button upload-button"
+							onclick={openUploadModal}
+							aria-label="Upload files"
+							title="Upload files"
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+								<polyline points="17 8 12 3 7 8"></polyline>
+								<line x1="12" y1="3" x2="12" y2="15"></line>
+							</svg>
+							Upload
+						</button>
 					</div>
 				</div>
 
@@ -387,13 +842,12 @@
 									<span class="file-icon" aria-hidden="true">
 										{getFileIcon(entry.name, entry.is_dir)}
 									</span>
-									<span class="file-name">{entry.name}</span>
+									<span class="file-name" title={entry.name}>{entry.name}</span>
 									<span class="file-permissions">{entry.permissions}</span>
 									<span class="file-size">{entry.is_dir ? '-' : formatBytes(entry.size)}</span>
 									<span class="file-modified">{formatDate(entry.modified)}</span>
 									<span class="file-actions"></span>
 								</button>
-
 								{#if entry.is_dir}
 									<div class="download-button-spacer"></div>
 								{:else}
@@ -403,9 +857,141 @@
 										title="Download {entry.name}"
 										aria-label="Download {entry.name}"
 									>
-										↓
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+											<polyline points="7 10 12 15 17 10"></polyline>
+											<line x1="12" y1="15" x2="12" y2="3"></line>
+										</svg>
 									</button>
 								{/if}
+
+								<div class="action-buttons-container">
+									<button
+										class="more-button"
+										onclick={(e) => toggleOptionsMenu(fullPath, e)}
+										title="More options"
+										aria-label="More options for {entry.name}"
+										aria-expanded={showOptionsMenu === fullPath}
+									>
+										⋮
+									</button>
+
+									{#if showOptionsMenu === fullPath}
+										<div class="options-menu" transition:fade={{ duration: 150 }}>
+											<button
+												class="option-item"
+												onclick={(e) => {
+													e.stopPropagation();
+													handleShowInfo(fullPath, entry);
+												}}
+											>
+												<svg
+													class="option-icon"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<circle cx="12" cy="12" r="10"></circle>
+													<line x1="12" y1="16" x2="12" y2="12"></line>
+													<line x1="12" y1="8" x2="12.01" y2="8"></line>
+												</svg>
+												<span>Info</span>
+											</button>
+											<button
+												class="option-item"
+												onclick={(e) => {
+													e.stopPropagation();
+													handleRename(fullPath, entry.name);
+												}}
+											>
+												<svg
+													class="option-icon"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+													></path>
+													<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+												</svg>
+												<span>Rename</span>
+											</button>
+											<button
+												class="option-item"
+												onclick={(e) => {
+													e.stopPropagation();
+													handleMove(fullPath, entry.name);
+												}}
+											>
+												<svg
+													class="option-icon"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<polyline points="5 9 2 12 5 15"></polyline>
+													<polyline points="9 5 12 2 15 5"></polyline>
+													<polyline points="15 19 12 22 9 19"></polyline>
+													<polyline points="19 9 22 12 19 15"></polyline>
+													<line x1="2" y1="12" x2="22" y2="12"></line>
+													<line x1="12" y1="2" x2="12" y2="22"></line>
+												</svg>
+												<span>Move</span>
+											</button>
+											<button
+												class="option-item option-item-danger"
+												onclick={(e) => {
+													e.stopPropagation();
+													handleDelete(fullPath, entry.name, entry.is_dir);
+												}}
+											>
+												<svg
+													class="option-icon"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<polyline points="3 6 5 6 21 6"></polyline>
+													<path
+														d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+													></path>
+													<line x1="10" y1="11" x2="10" y2="17"></line>
+													<line x1="14" y1="11" x2="14" y2="17"></line>
+												</svg>
+												<span>Delete</span>
+											</button>
+										</div>
+									{/if}
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -425,7 +1011,7 @@
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
-			class="modal-content"
+			class="modal-content file-viewer-modal"
 			onclick={(e) => e.stopPropagation()}
 			role="dialog"
 			aria-labelledby="modal-title"
@@ -447,7 +1033,34 @@
 							aria-label="Copy file content to clipboard"
 							class:success={copySuccess}
 						>
-							{copySuccess ? '✓' : '📋'}
+							{#if copySuccess}
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<polyline points="20 6 9 17 4 12"></polyline>
+								</svg>
+							{:else}
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+									<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+								</svg>
+							{/if}
 						</button>
 					{/if}
 					<button
@@ -456,7 +1069,20 @@
 						title="Download file"
 						aria-label="Download file"
 					>
-						↓
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+							<polyline points="7 10 12 15 17 10"></polyline>
+							<line x1="12" y1="15" x2="12" y2="3"></line>
+						</svg>
 					</button>
 					<button
 						class="modal-button"
@@ -464,7 +1090,19 @@
 						title="Close"
 						aria-label="Close file viewer"
 					>
-						✕
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18"></line>
+							<line x1="6" y1="6" x2="18" y2="18"></line>
+						</svg>
 					</button>
 				</div>
 			</div>
@@ -488,3 +1126,685 @@
 		</div>
 	</div>
 {/if}
+
+<!-- Upload Modal -->
+{#if showUploadModal}
+	<div
+		class="modal-backdrop"
+		onclick={() => (!isUploading || uploadSuccess) && closeUploadModal()}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content upload-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="upload-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="upload-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+						<polyline points="17 8 12 3 7 8"></polyline>
+						<line x1="12" y1="3" x2="12" y2="15"></line>
+					</svg>
+					<span>Upload Files or Folders</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeUploadModal}
+					disabled={isUploading && !uploadSuccess}
+					title="Close"
+					aria-label="Close upload dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				{#if uploadError}
+					<div class="upload-error">
+						<p>✗ {uploadError}</p>
+					</div>
+				{/if}
+
+				<div class="upload-destination">
+					<strong>Upload to:</strong>
+					<code>{currentPath}</code>
+				</div>
+
+				{#if isUploading}
+					<div class="upload-progress-container">
+						<div class="upload-progress-bar">
+							<div class="upload-progress-fill" style="width: {uploadProgress}%"></div>
+						</div>
+						{#if uploadSuccess}
+							<div class="upload-progress-success">✓ {uploadSuccess}</div>
+						{:else}
+							<div class="upload-progress-text">{Math.round(uploadProgress)}%</div>
+						{/if}
+					</div>
+				{:else}
+					<!-- Drag and Drop Zone -->
+					<div class="drag-hint">
+						Drag and drop files or folders to upload <br /><br /> Or
+					</div>
+
+					<div class="upload-actions">
+						<button class="upload-action-button" onclick={triggerFileUpload}>
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+								<polyline points="13 2 13 9 20 9"></polyline>
+							</svg>
+							<span>Select Files</span>
+						</button>
+						<button class="upload-action-button" onclick={triggerFolderUpload}>
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+								></path>
+							</svg>
+							<span>Select Folder</span>
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- File Info Modal -->
+{#if showFileInfoModal && fileInfoEntry}
+	<div
+		class="modal-backdrop"
+		onclick={closeFileInfoModal}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content file-info-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="file-info-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="file-info-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<circle cx="12" cy="12" r="10"></circle>
+						<line x1="12" y1="16" x2="12" y2="12"></line>
+						<line x1="12" y1="8" x2="12.01" y2="8"></line>
+					</svg>
+					<span>File Information</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeFileInfoModal}
+					title="Close"
+					aria-label="Close file info dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="file-info-container">
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+								<polyline points="14 2 14 8 20 8"></polyline>
+							</svg>
+							<span>Name:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{fileInfoEntry.name}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+								></path>
+							</svg>
+							<span>Type:</span>
+						</div>
+						<div class="file-info-value">
+							<span class="file-type-badge">
+								{fileInfoEntry.is_dir
+									? '📁 Directory'
+									: `📄 File${getFileExtension(fileInfoEntry.name) ? ` (.${getFileExtension(fileInfoEntry.name)})` : ''}`}
+							</span>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+								<polyline points="13 2 13 9 20 9"></polyline>
+							</svg>
+							<span>Size:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{formatBytes(fileInfoEntry.size)}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+								<line x1="16" y1="2" x2="16" y2="6"></line>
+								<line x1="8" y1="2" x2="8" y2="6"></line>
+								<line x1="3" y1="10" x2="21" y2="10"></line>
+							</svg>
+							<span>Modified:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{formatDate(fileInfoEntry.modified)}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+								<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+							</svg>
+							<span>Permissions:</span>
+						</div>
+						<div class="file-info-value">
+							<code>{fileInfoEntry.permissions}</code>
+						</div>
+					</div>
+
+					<div class="file-info-row">
+						<div class="file-info-label">
+							<svg
+								class="info-icon"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+							</svg>
+							<span>Full Path:</span>
+						</div>
+						<div class="file-info-value file-info-path">
+							<code>{fileInfoPath}</code>
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button class="primary-button" onclick={closeFileInfoModal}>Close</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Rename Modal -->
+{#if showRenameModal}
+	<div
+		class="modal-backdrop"
+		onclick={closeRenameModal}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content rename-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="rename-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="rename-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+					</svg>
+					<span>Rename</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeRenameModal}
+					disabled={isRenaming}
+					title="Close"
+					aria-label="Close rename dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				{#if renameError}
+					<div class="upload-error">
+						<p>✗ {renameError}</p>
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label for="rename-input">New name:</label>
+					<input
+						id="rename-input"
+						type="text"
+						class="text-input"
+						bind:value={newFileName}
+						disabled={isRenaming}
+						onkeydown={(e) => e.key === 'Enter' && performRename()}
+						aria-label="New file or folder name"
+					/>
+				</div>
+
+				<div class="modal-footer">
+					<button class="secondary-button" onclick={closeRenameModal} disabled={isRenaming}>
+						Cancel
+					</button>
+					<button class="primary-button" onclick={performRename} disabled={isRenaming}>
+						{isRenaming ? 'Renaming...' : 'Rename'}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if isDragging && currentPath !== ''}
+	<div class="drag-overlay" class:visible={isDragging}>
+		<div class="drag-border">
+			<div class="drag-overlay-content">
+				<svg
+					width="64"
+					height="64"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+					<polyline points="17 8 12 3 7 8"></polyline>
+					<line x1="12" y1="3" x2="12" y2="15"></line>
+				</svg>
+				<p class="drag-overlay-text">Drop files or folders to upload</p>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Move Modal -->
+{#if showMoveModal}
+	<div
+		class="modal-backdrop"
+		onclick={closeMoveModal}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content move-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="move-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="move-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="5 9 2 12 5 15"></polyline>
+						<polyline points="9 5 12 2 15 5"></polyline>
+						<polyline points="15 19 12 22 9 19"></polyline>
+						<polyline points="19 9 22 12 19 15"></polyline>
+						<line x1="2" y1="12" x2="22" y2="12"></line>
+						<line x1="12" y1="2" x2="12" y2="22"></line>
+					</svg>
+					<span>Move</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeMoveModal}
+					disabled={isMoving}
+					title="Close"
+					aria-label="Close move dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				{#if moveError}
+					<div class="upload-error">
+						<p>✗ {moveError}</p>
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label for="move-source">Moving:</label>
+					<div class="read-only-field">
+						<code>{moveFileName}</code>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label for="move-destination">Destination path:</label>
+					<input
+						id="move-destination"
+						type="text"
+						class="text-input"
+						bind:value={moveDestination}
+						disabled={isMoving}
+						onkeydown={(e) => e.key === 'Enter' && performMove()}
+						placeholder="Enter full destination path"
+						aria-label="Destination path"
+					/>
+				</div>
+
+				<div class="modal-footer">
+					<button class="secondary-button" onclick={closeMoveModal} disabled={isMoving}>
+						Cancel
+					</button>
+					<button class="primary-button" onclick={performMove} disabled={isMoving}>
+						{isMoving ? 'Moving...' : 'Move'}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Create Folder Modal -->
+{#if showCreateFolderModal}
+	<div
+		class="modal-backdrop"
+		onclick={closeCreateFolderModal}
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class="modal-content create-folder-modal"
+			onclick={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-labelledby="create-folder-modal-title"
+			aria-modal="true"
+			tabindex="-1"
+			transition:fly={{ y: 50, duration: 300 }}
+		>
+			<div class="modal-header">
+				<div class="modal-title" id="create-folder-modal-title">
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+						></path>
+						<line x1="12" y1="11" x2="12" y2="17"></line>
+						<line x1="9" y1="14" x2="15" y2="14"></line>
+					</svg>
+					<span>Create New Folder</span>
+				</div>
+				<button
+					class="modal-button"
+					onclick={closeCreateFolderModal}
+					disabled={isCreatingFolder}
+					title="Close"
+					aria-label="Close create folder dialog"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<div class="modal-body">
+				{#if createFolderError}
+					<div class="upload-error">
+						<p>✗ {createFolderError}</p>
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label for="folder-name-input">Folder name:</label>
+					<input
+						id="folder-name-input"
+						type="text"
+						class="text-input"
+						bind:value={newFolderName}
+						disabled={isCreatingFolder}
+						onkeydown={(e) => e.key === 'Enter' && performCreateFolder()}
+						placeholder="Enter folder name"
+						aria-label="New folder name"
+					/>
+				</div>
+
+				<div class="upload-destination">
+					<strong>Create in:</strong>
+					<code>{currentPath}</code>
+				</div>
+
+				<div class="modal-footer">
+					<button
+						class="secondary-button"
+						onclick={closeCreateFolderModal}
+						disabled={isCreatingFolder}
+					>
+						Cancel
+					</button>
+					<button class="primary-button" onclick={performCreateFolder} disabled={isCreatingFolder}>
+						{isCreatingFolder ? 'Creating...' : 'Create Folder'}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Hidden file inputs -->
+<input
+	type="file"
+	bind:this={fileInputRef}
+	onchange={(e) => handleFileUpload(e.currentTarget.files)}
+	multiple
+	style="display: none"
+	aria-hidden="true"
+/>
+<input
+	type="file"
+	bind:this={folderInputRef}
+	onchange={(e) => handleFileUpload(e.currentTarget.files)}
+	webkitdirectory
+	multiple
+	style="display: none"
+	aria-hidden="true"
+/>

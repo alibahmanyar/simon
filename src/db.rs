@@ -23,8 +23,8 @@ impl Database {
             row.get::<_, String>(0)
         })?;
         conn.execute("PRAGMA synchronous = NORMAL", [])?;
-        conn.execute("PRAGMA cache_size = 8000", [])?;
-        conn.execute("PRAGMA temp_store = MEMORY", [])?;
+        conn.execute("PRAGMA cache_size = 1000", [])?;
+        conn.execute("PRAGMA temp_store = FILE", [])?;
 
         // Create tables
         for table_name in ["general_s", "general_m", "general_h", "general_d"] {
@@ -170,13 +170,13 @@ impl Database {
             _ => "m", // Default to minute metrics
         };
 
-        let mut series_results: Vec<HistoricalSeries> = Vec::new();
+        let mut series_results: Vec<HistoricalSeries> = Vec::with_capacity(3);
 
         for cat in ["general", "net", "disk"] {
             let table_name = format!("{}_{}", cat, resolution);
             // Build the query
             let mut query = format!("SELECT * FROM {}", table_name);
-            let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+            let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::with_capacity(3);
 
             // Fix query construction - first condition shouldn't have AND
             let mut has_where = false;

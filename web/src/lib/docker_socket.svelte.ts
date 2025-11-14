@@ -39,8 +39,24 @@ function scheduleReconnect() {
 }
 
 export function close_ws() {
+	// Cancel any pending reconnection
+	if (reconnectTimeout !== null) {
+		clearTimeout(reconnectTimeout);
+		reconnectTimeout = null;
+	}
+	isReconnecting = false;
+
 	if (d_ws !== null) {
-		d_ws.close();
+		try {
+			d_ws.onopen = null;
+			d_ws.onclose = null;
+			d_ws.onerror = null;
+			d_ws.onmessage = null;
+			d_ws.close();
+		} catch (e) {
+			console.error('Error while closing Docker WebSocket:', e);
+		}
+		d_ws = null;
 	}
 }
 

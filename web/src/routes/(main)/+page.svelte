@@ -25,9 +25,9 @@
 	let timestamps = $derived(gdata.prevDataPoints.map((d) => d.t));
 	let cpu_data = $derived(gdata.prevDataPoints.map((d) => d.cpu.avg_usage.toFixed(1)));
 	let cores = $derived(gdata.prevDataPoints.map((d) => d.cpu.usage));
-	let sys_load_1 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[0]));
-	let sys_load_5 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[1]));
-	let sys_load_15 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[2]));
+	let sys_load_1 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[0].toFixed(2)));
+	let sys_load_5 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[1].toFixed(2)));
+	let sys_load_15 = $derived(gdata.prevDataPoints.map((d) => d.sys.load_avg[2].toFixed(2)));
 	let show_avg = $state(true),
 		show_graph_cores = $state(false),
 		show_cores = $state(false);
@@ -137,15 +137,15 @@
 					<div class="load-average">
 						<div class="load-item">
 							<span class="load-label">1 Minute</span>
-							<span class="load-value" id="load-1">{gdata.data.sys.load_avg[0]}</span>
+							<span class="load-value" id="load-1">{gdata.data.sys.load_avg[0].toFixed(2)}</span>
 						</div>
 						<div class="load-item">
 							<span class="load-label">5 Minutes</span>
-							<span class="load-value" id="load-5">{gdata.data.sys.load_avg[1]}</span>
+							<span class="load-value" id="load-5">{gdata.data.sys.load_avg[1].toFixed(2)}</span>
 						</div>
 						<div class="load-item">
 							<span class="load-label">15 Minutes</span>
-							<span class="load-value" id="load-15">{gdata.data.sys.load_avg[2]}</span>
+							<span class="load-value" id="load-15">{gdata.data.sys.load_avg[2].toFixed(2)}</span>
 						</div>
 					</div>
 				</div>
@@ -197,8 +197,8 @@
 					yAxisLabel="Memory Usage (%)"
 					autoScale={false}
 					data={[
-						gdata.prevDataPoints.map((x) => (x.mem.used_mem * 100) / x.mem.total_mem),
-						gdata.prevDataPoints.map((x) => (x.mem.used_swap * 100) / x.mem.total_swap)
+						gdata.prevDataPoints.map((x) => ((x.mem.used_mem * 100) / x.mem.total_mem).toFixed(2)),
+						gdata.prevDataPoints.map((x) => ((x.mem.used_swap * 100) / x.mem.total_swap).toFixed(2))
 					]}
 					labels={['Memory', 'Swap']}
 					colors={['#4dabf7', '#ae3ec9']}
