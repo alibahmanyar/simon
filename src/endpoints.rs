@@ -1230,7 +1230,9 @@ pub async fn upload_file(
                 file_name
                     .trim_start_matches('/')
                     .replace("../", "")
-                    .replace("/..", ""),
+                    .replace("/..", "")
+                    .replace("\\..", "")
+                    .replace("..\\", ""),
             );
 
             // Construct the full file path
@@ -1406,7 +1408,9 @@ pub async fn create_folder(
         folder_name
             .trim_start_matches("/")
             .replace("../", "")
-            .replace("/..", ""),
+            .replace("/..", "")
+            .replace("\\..", "")
+            .replace("..\\", ""),
     );
     let mut folder_path = canonical_path.join(canonical_folder_name.clone());
 
@@ -1478,7 +1482,11 @@ pub async fn move_file(
 
     let source_path = PathBuf::from(source.clone());
     let mut destination_path = PathBuf::from(&destination);
-    destination = destination.replace("../", "").replace("/..", "");
+    destination = destination
+        .replace("../", "")
+        .replace("/..", "")
+        .replace("\\..", "")
+        .replace("..\\", "");
 
     if destination_path.is_dir() {
         if let Some(file_name) = source_path.file_name() {
