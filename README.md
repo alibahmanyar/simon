@@ -13,7 +13,7 @@
 
 
 <p align="center">
-<strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and a built-in file browser</strong>
+<strong>A lightweight, all-in-one system monitor with Docker support, live metrics, alerts, and full file management</strong>
 <br />
 It's a single, dependency-free binary written in Rust, designed for resource-constrained environments like embedded Linux systems
 </p>
@@ -59,10 +59,12 @@ It's a single, dependency-free binary written in Rust, designed for resource-con
 - **Log viewer** - Access and search container logs directly from the web interface
 - **Real-time stats** - Per-container CPU and memory metrics
 
-### 📁 File Browser
+### 📁 File Browser & Management
 - **Filesystem navigation** - Browse and explore directories through the web UI
 - **File viewer** - Preview file contents directly in your browser
-- **File downloads** - Secure file download capability
+- **File uploads** - Upload files with drag-and-drop support
+- **File operations** - Create folders, move files, delete items
+- **File downloads** - Range request support for resumable downloads and media streaming
 
 ### 🔔 Alerting System
 - **Flexible alerts** - Set custom thresholds for CPU, memory, disk, and network

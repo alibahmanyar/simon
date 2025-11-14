@@ -33,6 +33,12 @@ Command-line arguments take precedence over environment variables.
 | Database Path | `SIMON_DB_PATH` | `--db-path` | `./simon-data/simon.db` | Path to SQLite database file |
 | Serve Directories | `SIMON_SERVE_DIRS` | `--serve-dir` | None | Comma-separated list of directories to serve via file browser |
 
+### File Management
+
+| Option | Environment Variable | CLI Flag | Default | Description |
+|--------|---------------------|----------|---------|-------------|
+| Max Upload Size | `SIMON_UPLOAD_LIMIT` | `--upload-limit` | `10737418240` | Maximum file upload size in bytes (default: 10GiB) |
+
 ## Examples
 
 ### Using Environment Variables
@@ -42,6 +48,7 @@ export SIMON_PORT=8080
 export SIMON_UPDATE_INTERVAL=5
 export SIMON_PASSWORD_HASH='$2a$12$...'
 export SIMON_SERVE_DIRS='/var/log,/home/user/documents'
+export SIMON_UPLOAD_LIMIT=1073741824  # 1GB
 ./simon
 ```
 
@@ -53,7 +60,8 @@ export SIMON_SERVE_DIRS='/var/log,/home/user/documents'
   --update-interval 5 \
   --password-hash '$2a$12$...' \
   --serve-dir /var/log \
-  --serve-dir /home/user/documents
+  --serve-dir /home/user/documents \
+  --upload-limit 1073741824
 ```
 
 ### Using Docker
@@ -64,6 +72,7 @@ docker run -d \
   -e SIMON_UPDATE_INTERVAL=5 \
   -e SIMON_PASSWORD_HASH='$$2a$$12$$...' \
   -e SIMON_SERVE_DIRS='/var/log,/home/user/documents' \
+  -e SIMON_UPLOAD_LIMIT=1073741824 \
   -p 8080:8080 \
   alibahmanyar/simon
 ```
@@ -77,3 +86,9 @@ Note: In Docker Compose files, dollar signs must be escaped as `$$`.
 3. **Restrict file browser access** by carefully selecting served directories
 4. **Use HTTPS** when deploying with a reverse proxy
 5. **Limit network access** using firewall rules or Docker network policies
+6. **Use read-only mounts** when file modifications are not needed
+
+## Additional Documentation
+
+- **[Setup Guide](SETUP.md)** - Installation and deployment instructions
+- **[Alerts](ALERTS.md)** - Monitoring and notification configuration
