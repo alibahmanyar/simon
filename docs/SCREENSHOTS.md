@@ -3,7 +3,7 @@
 ## Demo Video
 
 
-https://github.com/user-attachments/assets/c8de7765-db7d-49cd-8182-54b91091d01c
+https://github.com/user-attachments/assets/add0e7f3-5f87-408e-a3bd-6189c1c1ee4d
 
 
 ---
@@ -64,6 +64,12 @@ https://github.com/user-attachments/assets/c8de7765-db7d-49cd-8182-54b91091d01c
 <p align="center">
   <img src="media/screenshots/file-preview.png" alt="File Preview">
   <br><em>Preview file contents directly in browser with syntax highlighting</em>
+</p>
+
+### File Upload
+<p align="center">
+  <img src="media/screenshots/file-upload.png" alt="File Preview">
+  <br><em>Upload files and folders</em>
 </p>
 
 ---
