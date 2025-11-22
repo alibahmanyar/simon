@@ -17,7 +17,7 @@ sysinfo = "^0.37"
 futures = "^0.3"
 serde_json = "^1.0"
 tower-http = { version = "0.6.1", features = ["compression-full", "decompression-full"] }
-bollard = "^0.18"
+bollard = "^0.19"
 futures-util = "^0.3"
 rusqlite = { version = "^0.37", features = ["bundled"] }
 chrono = "^0.4"
@@ -29,7 +29,7 @@ rand = "0.9.0"
 bcrypt = "0.17.0"
 uuid = {version = "1.16.0", features = ["v4"]}
 log = "^0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 reqwest = { version = "^0.12", features = ["rustls-tls"] }
 openssl = { version = "0.10.74", features = ["vendored"] }
 rust-embed = "8.8.0"

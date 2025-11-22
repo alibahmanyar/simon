@@ -16,7 +16,7 @@ use axum::{
     http::HeaderMap,
     response::{Html, IntoResponse},
 };
-use bollard::container::LogsOptions;
+use bollard::query_parameters::LogsOptions;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
 use models::HistoricalQueryOptions;
@@ -331,7 +331,7 @@ async fn handle_socket_g(mut socket: WebSocket, sys: Arc<Mutex<System>>, ws_inte
 pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoResponse {
     debug!("Getting logs for container: {}", container_id);
     let docker = bollard::Docker::connect_with_local_defaults().unwrap();
-    let options = Some(LogsOptions::<String> {
+    let options = Some(LogsOptions {
         stdout: true,
         stderr: true,
         timestamps: true,

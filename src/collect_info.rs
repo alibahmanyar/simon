@@ -1,7 +1,7 @@
 use crate::{config::Config, models::*};
 use bollard::{
     Docker,
-    container::{ListContainersOptions, StatsOptions},
+    query_parameters::{ListContainersOptions, StatsOptions},
 };
 use futures::StreamExt;
 use log::{debug, info, trace, warn};
@@ -331,7 +331,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
     // List all containers
     debug!("Listing Docker containers");
     let containers = match docker
-        .list_containers(Some(ListContainersOptions::<String> {
+        .list_containers(Some(ListContainersOptions {
             all: true,
             ..Default::default()
         }))
@@ -390,17 +390,33 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
 
         // Calculate CPU usage
         // https://github.com/moby/moby/blob/eb131c5383db8cac633919f82abad86c99bffbe5/cli/command/container/stats_helpers.go#L175-L188
-        let cpu_delta = stats.cpu_stats.cpu_usage.total_usage as f64
-            - stats.precpu_stats.cpu_usage.total_usage as f64;
-        let system_delta = stats.cpu_stats.system_cpu_usage.unwrap_or(0) as f64
-            - stats.precpu_stats.system_cpu_usage.unwrap_or(0) as f64;
-        let cpu_usage = 100.0
-            * if system_delta > 0.0 && cpu_delta > 0.0 {
-                (cpu_delta / system_delta) * (stats.cpu_stats.online_cpus.unwrap_or(1) as f64)
-            } else {
-                0.0
-            };
+        let cpu_usage = (|| {
+            let cpu_stats = stats.cpu_stats.as_ref()?;
+            let precpu_stats = stats.precpu_stats.as_ref()?;
 
+            let cpu_usage = cpu_stats.cpu_usage.as_ref()?;
+            let precpu_usage = precpu_stats.cpu_usage.as_ref()?;
+
+            let total_usage = cpu_usage.total_usage?;
+            let pre_total_usage = precpu_usage.total_usage?;
+
+            let system_cpu_usage = cpu_stats.system_cpu_usage.unwrap_or(0);
+            let pre_system_cpu_usage = precpu_stats.system_cpu_usage.unwrap_or(0);
+
+            let cpu_delta = total_usage as f64 - pre_total_usage as f64;
+            let system_delta = system_cpu_usage as f64 - pre_system_cpu_usage as f64;
+
+            if system_delta > 0.0 && cpu_delta > 0.0 {
+                Some(
+                    (cpu_delta / system_delta)
+                        * (cpu_stats.online_cpus.unwrap_or(1) as f64)
+                        * 100.0,
+                )
+            } else {
+                Some(0.0)
+            }
+        })()
+        .unwrap_or(0.0);
         // Parse ports
         let ports = container
             .ports
@@ -410,7 +426,11 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
                 ip: port.ip.clone(),
                 priv_port: port.private_port,
                 pub_port: port.public_port,
-                protocol: port.typ.unwrap().to_string(),
+                protocol: port
+                    .typ
+                    .as_ref()
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "tcp".to_string()),
             })
             .collect();
 
@@ -420,22 +440,46 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
             name: container.names.unwrap_or_default().join(", "),
             image: container.image.unwrap_or_default(),
             status: container.status.unwrap_or_default(),
-            state: container.state.unwrap_or_default(),
+            state: container
+                .state
+                .unwrap_or(bollard::secret::ContainerSummaryStateEnum::EMPTY)
+                .to_string(),
             created: container.created.unwrap_or(0),
             ports,
             cpu_usage,
-            mem_usage: stats.memory_stats.usage.unwrap_or(0),
-            mem_limit: stats.memory_stats.limit.unwrap_or(0),
-            net_io: match stats.network {
-                Some(network) => [network.rx_bytes, network.tx_bytes],
-                None => {
-                    trace!("No network stats for container {}", container_id);
-                    [0, 0]
-                }
+            mem_usage: stats
+                .memory_stats
+                .as_ref()
+                .and_then(|m| m.usage)
+                .unwrap_or(0),
+            mem_limit: stats
+                .memory_stats
+                .as_ref()
+                .and_then(|m| m.limit)
+                .unwrap_or(0),
+            net_io: if let Some(networks) = stats.networks {
+                let (rx, tx) = networks.values().fold((0, 0), |(rx, tx), net| {
+                    (
+                        rx + net.rx_bytes.unwrap_or(0),
+                        tx + net.tx_bytes.unwrap_or(0),
+                    )
+                });
+                [rx, tx]
+            } else {
+                trace!("No network stats for container {}", container_id);
+                [0, 0]
             },
             disk_io: [
-                stats.storage_stats.read_size_bytes.unwrap_or(0),
-                stats.storage_stats.write_size_bytes.unwrap_or(0),
+                stats
+                    .storage_stats
+                    .as_ref()
+                    .and_then(|s| s.read_size_bytes)
+                    .unwrap_or(0),
+                stats
+                    .storage_stats
+                    .as_ref()
+                    .and_then(|s| s.write_size_bytes)
+                    .unwrap_or(0),
             ],
         });
     }
