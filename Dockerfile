@@ -21,5 +21,9 @@ FROM base AS target-386
 COPY --chmod=555 bin-releases/simon-i686-linux-musl /app/simon
 ENTRYPOINT ["/app/simon"]
 
+FROM base AS target-riscv64
+COPY --chmod=555 bin-releases/simon-riscv64-linux-musl /app/simon
+ENTRYPOINT ["/app/simon"]
+
 # Final target stage
 FROM target-${TARGETARCH} AS target

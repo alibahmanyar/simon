@@ -85,6 +85,18 @@ linux-i686:
 		docker system prune -af; \
 	fi
 
+.PHONY: linux-riscv64
+linux-riscv64:
+	@echo "Building for linux-riscv64..."
+	$(CROSS) build --release --target riscv64gc-unknown-linux-gnu
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/riscv64gc-unknown-linux-gnu/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-riscv64-linux
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-riscv64 build artifacts..."; \
+		rm -rf target/riscv64gc-unknown-linux-gnu; \
+		docker system prune -af; \
+	fi
+
 .PHONY: linux-aarch64-musl
 linux-aarch64-musl:
 	@echo "Building for linux-aarch64-musl..."
@@ -130,6 +142,18 @@ linux-i686-musl:
 	@if [ "$(CLEANUP)" = "true" ]; then \
 		echo "Cleaning up linux-i686-musl build artifacts..."; \
 		rm -rf target/i686-unknown-linux-musl; \
+		docker system prune -af; \
+	fi
+
+.PHONY: linux-riscv64-musl
+linux-riscv64-musl:
+	@echo "Building for linux-riscv64-musl..."
+	$(CROSS) build --release --target riscv64gc-unknown-linux-musl
+	@mkdir -p $(RELEASE_DIR)
+	@cp target/riscv64gc-unknown-linux-musl/release/$(PROJECT_NAME) $(RELEASE_DIR)/$(PROJECT_NAME)-riscv64-linux-musl
+	@if [ "$(CLEANUP)" = "true" ]; then \
+		echo "Cleaning up linux-riscv64-musl build artifacts..."; \
+		rm -rf target/riscv64gc-unknown-linux-musl; \
 		docker system prune -af; \
 	fi
 
@@ -196,7 +220,7 @@ freebsd-x86_64:
 
 # Build all supported targets
 .PHONY: all-targets
-all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl android-aarch64 android-armv7 android-x86_64 windows-x86_64 freebsd-x86_64
+all-targets: linux-x86_64 linux-aarch64 linux-armv7 linux-i686 linux-riscv64 linux-aarch64-musl linux-armv7-musl linux-x86_64-musl linux-i686-musl linux-riscv64-musl android-aarch64 android-armv7 android-x86_64 windows-x86_64 freebsd-x86_64
 
 
 # CI: Build GitHub release artifacts sequentially. For each target this copies the release binary into $(RELEASE_DIR),
@@ -206,31 +230,35 @@ ci-release:
 	@echo "Building all targets for GitHub release..."
 	@mkdir -p $(RELEASE_DIR)
 	@$(MAKE) linux-x86_64 CLEANUP=true
-	@echo "Completed linux-x86_64 - 1/13"
+	@echo "Completed linux-x86_64 - 1/15"
 	@$(MAKE) linux-aarch64 CLEANUP=true
-	@echo "Completed linux-aarch64 - 2/13"
+	@echo "Completed linux-aarch64 - 2/15"
 	@$(MAKE) linux-armv7 CLEANUP=true
-	@echo "Completed linux-armv7 - 3/13"
+	@echo "Completed linux-armv7 - 3/15"
 	@$(MAKE) linux-i686 CLEANUP=true
-	@echo "Completed linux-i686 - 4/13"
+	@echo "Completed linux-i686 - 4/15"
+	@$(MAKE) linux-riscv64 CLEANUP=true
+	@echo "Completed linux-riscv64 - 5/15"
 	@$(MAKE) linux-aarch64-musl CLEANUP=true
-	@echo "Completed linux-aarch64-musl - 5/13"
+	@echo "Completed linux-aarch64-musl - 6/15"
 	@$(MAKE) linux-armv7-musl CLEANUP=true
-	@echo "Completed linux-armv7-musl - 6/13"
+	@echo "Completed linux-armv7-musl - 7/15"
 	@$(MAKE) linux-x86_64-musl CLEANUP=true
-	@echo "Completed linux-x86_64-musl - 7/13"
+	@echo "Completed linux-x86_64-musl - 8/15"
 	@$(MAKE) linux-i686-musl CLEANUP=true
-	@echo "Completed linux-i686-musl - 8/13"
+	@echo "Completed linux-i686-musl - 9/15"
+	@$(MAKE) linux-riscv64-musl CLEANUP=true
+	@echo "Completed linux-riscv64-musl - 10/15"
 	@$(MAKE) android-aarch64 CLEANUP=true
-	@echo "Completed android-aarch64 - 9/13"
+	@echo "Completed android-aarch64 - 11/15"
 	@$(MAKE) android-armv7 CLEANUP=true
-	@echo "Completed android-armv7 - 10/13"
+	@echo "Completed android-armv7 - 12/15"
 	@$(MAKE) android-x86_64 CLEANUP=true
-	@echo "Completed android-x86_64 - 11/13"
+	@echo "Completed android-x86_64 - 13/15"
 	@$(MAKE) windows-x86_64 CLEANUP=true
-	@echo "Completed windows-x86_64 - 12/13"
+	@echo "Completed windows-x86_64 - 14/15"
 	@$(MAKE) freebsd-x86_64 CLEANUP=true
-	@echo "Completed freebsd-x86_64 - 13/13"
+	@echo "Completed freebsd-x86_64 - 15/15"
 	@echo "Running UPX compression on Linux binaries..."
 	@echo "Finished creating GitHub release artifacts in $(RELEASE_DIR)"
 
@@ -279,7 +307,7 @@ docker:
 
 .PHONY: docker-all
 docker-all:
-	docker buildx build -t $(PROJECT_NAME) --platform linux/amd64,linux/arm64,linux/386,linux/arm/v7 .
+	docker buildx build -t $(PROJECT_NAME) --platform linux/amd64,linux/arm64,linux/386,linux/arm/v7,linux/riscv64 .
 
 .PHONY: web
 web:
@@ -309,12 +337,14 @@ help:
 	@echo "  linux-aarch64          64-bit ARM Linux (glibc)"
 	@echo "  linux-armv7            32-bit ARMv7 Linux (glibc)"
 	@echo "  linux-i686             32-bit x86 Linux (glibc)"
+	@echo "  linux-riscv64          64-bit RISC-V Linux (glibc)"
 	@echo ""
 	@echo "LINUX MUSL TARGETS (Static linking)"
 	@echo "  linux-x86_64-musl      64-bit Linux (musl, static)"
 	@echo "  linux-aarch64-musl     64-bit ARM Linux (musl, static)"
 	@echo "  linux-armv7-musl       32-bit ARMv7 Linux (musl, static)"
 	@echo "  linux-i686-musl        32-bit x86 Linux (musl, static)"
+	@echo "  linux-riscv64-musl     64-bit RISC-V Linux (musl, static)"
 	@echo ""
 	@echo "ANDROID TARGETS"
 	@echo "  android-aarch64        64-bit ARM Android (API 21+)"
@@ -328,7 +358,7 @@ help:
 	@echo "  freebsd-x86_64         64-bit FreeBSD"
 	@echo ""
 	@echo "BATCH BUILD TARGETS"
-	@echo "  all-targets            Build all supported targets (13 platforms)"
+	@echo "  all-targets            Build all supported targets (15 platforms)"
 	@echo "  build-gh-release       Build all targets for GitHub release (optimized for CI)"
 	@echo ""
 	@echo "DOCKER TARGETS"
