@@ -14,7 +14,7 @@ static VALID_FILESYSTEMS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     HashSet::from([
         "ext2", "ext3", "ext4", "btrfs", "xfs", "zfs", "ntfs", "fat", "fat32", "exfat", "hfs",
         "hfs+", "apfs", "jfs", "reiserfs", "ufs", "f2fs", "nilfs2", "hpfs", "minix", "qnx4",
-        "ocfs2", "udf", "vfat", "msdos",
+        "ocfs2", "udf", "vfat", "msdos", "fuseblk",
     ])
 });
 
