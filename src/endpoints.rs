@@ -1135,19 +1135,37 @@ pub async fn upload_file(
     let mut errors = Vec::new();
     let mut file_count = 0;
 
+    // Set a timeout for the entire multipart parsing operation (60 minutes per field)
+    let field_timeout = Duration::from_secs(3600);
+
     // Parse multipart fields
     loop {
-        let field = match multipart.next_field().await {
-            Ok(Some(f)) => f,
-            Ok(None) => break,
-            Err(e) => {
+        let field = match tokio::time::timeout(
+            field_timeout,
+            multipart.next_field()
+        )
+        .await
+        {
+            Ok(Ok(Some(f))) => f,
+            Ok(Ok(None)) => break,
+            Ok(Err(e)) => {
                 error!("Failed to read multipart field: {}", e);
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ApiResponse::<String>::error(format!(
-                        "Failed to read multipart data: {}",
+                        "Failed to parse multipart form data: {}",
                         e
                     ))),
+                )
+                    .into_response();
+            }
+            Err(_) => {
+                error!("Timeout while reading multipart field");
+                return (
+                    StatusCode::REQUEST_TIMEOUT,
+                    Json(ApiResponse::<String>::error(
+                        "Upload timeout: request took too long to complete".to_string(),
+                    )),
                 )
                     .into_response();
             }
@@ -1156,9 +1174,14 @@ pub async fn upload_file(
         let field_name = field.name().unwrap_or("").to_string();
 
         if field_name == "path" {
-            match field.text().await {
-                Ok(text) => upload_path = Some(text),
-                Err(e) => {
+            match tokio::time::timeout(
+                Duration::from_secs(30),
+                field.text()
+            )
+            .await
+            {
+                Ok(Ok(text)) => upload_path = Some(text),
+                Ok(Err(e)) => {
                     error!("Failed to read path field: {}", e);
                     return (
                         StatusCode::BAD_REQUEST,
@@ -1166,6 +1189,16 @@ pub async fn upload_file(
                             "Failed to read path: {}",
                             e
                         ))),
+                    )
+                        .into_response();
+                }
+                Err(_) => {
+                    error!("Timeout while reading path field");
+                    return (
+                        StatusCode::REQUEST_TIMEOUT,
+                        Json(ApiResponse::<String>::error(
+                            "Timeout reading path parameter".to_string(),
+                        )),
                     )
                         .into_response();
                 }
@@ -1260,17 +1293,33 @@ pub async fn upload_file(
             }
 
             // Stream the file directly to disk
-            let file_result: Result<u64, Box<dyn std::error::Error>> = async {
-                let mut file = tokio::fs::File::create(&file_path).await?;
+            let file_result: Result<u64, String> = async {
+                let mut file = tokio::fs::File::create(&file_path).await
+                    .map_err(|e| format!("Failed to create file: {}", e))?;
                 let mut stream = field;
                 let mut total_bytes = 0u64;
+                let chunk_timeout = Duration::from_secs(300); // 5 minute timeout per chunk
 
-                while let Some(chunk) = stream.chunk().await? {
-                    file.write_all(&chunk).await?;
-                    total_bytes += chunk.len() as u64;
+                loop {
+                    match tokio::time::timeout(
+                        chunk_timeout,
+                        stream.chunk()
+                    )
+                    .await
+                    {
+                        Ok(Ok(Some(chunk))) => {
+                            file.write_all(&chunk).await
+                                .map_err(|e| format!("Failed to write chunk: {}", e))?;
+                            total_bytes += chunk.len() as u64;
+                        }
+                        Ok(Ok(None)) => break,
+                        Ok(Err(e)) => return Err(format!("Multipart error: {}", e)),
+                        Err(_) => return Err("Timeout while reading file chunk".to_string()),
+                    }
                 }
 
-                file.flush().await?;
+                file.flush().await
+                    .map_err(|e| format!("Failed to flush file: {}", e))?;
                 Ok(total_bytes)
             }
             .await;
