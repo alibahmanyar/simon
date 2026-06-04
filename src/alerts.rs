@@ -162,7 +162,9 @@ fn check_alert_condition(db: &Database, alert: &Alert) -> Result<bool, String> {
                 "SELECT {}({}) FROM general_{} WHERE timestamp >= ?",
                 agg_function, alert.var.var, table_suffix
             );
-            conn.query_row(&query, params![start_time as i64], |row| row.get::<_, f64>(0))
+            conn.query_row(&query, params![start_time as i64], |row| {
+                row.get::<_, f64>(0)
+            })
         }
         "net" | "disk" => {
             // Network or disk metrics need to filter by resource name
@@ -264,7 +266,10 @@ fn build_http_client() -> Result<Client, String> {
         }
     }
 
-    Err("Failed to build HTTP client: platform verifier unavailable and no CA certificates found".to_string())
+    Err(
+        "Failed to build HTTP client: platform verifier unavailable and no CA certificates found"
+            .to_string(),
+    )
 }
 
 /// Send a webhook notification
