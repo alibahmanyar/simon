@@ -2,6 +2,7 @@ use crate::db::Database;
 use crate::models::{Alert, AlertVar, NotificationConfig, NotificationMethod, WebHookNotif};
 use log::{debug, error, info, trace};
 use reqwest::Client;
+use reqwest::tls::Certificate;
 use rusqlite::params;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -227,12 +228,48 @@ async fn send_notification(method: &NotificationMethod, message: &str) -> Result
     }
 }
 
+/// Build an HTTP client, loading CA certificates manually if the default
+/// platform verifier fails (e.g. in scratch Docker containers).
+fn build_http_client() -> Result<Client, String> {
+    // Try the default builder first (uses rustls-platform-verifier)
+    match Client::builder().build() {
+        Ok(client) => return Ok(client),
+        Err(e) => {
+            debug!(
+                "Default HTTP client builder failed ({}), trying manual CA cert loading",
+                e
+            );
+        }
+    }
+
+    // Fallback: load CA certs manually and use tls_certs_only() to bypass
+    // rustls-platform-verifier, which can fail in minimal containers (e.g. FROM scratch)
+    let cert_paths = [
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/ssl/ca-bundle.pem",
+    ];
+
+    for path in &cert_paths {
+        if let Ok(pem_data) = std::fs::read(path) {
+            let certs = Certificate::from_pem_bundle(&pem_data)
+                .map_err(|e| format!("Failed to parse CA certificates from {}: {}", path, e))?;
+            if !certs.is_empty() {
+                debug!("Loaded {} CA certificates from {}", certs.len(), path);
+                return Client::builder()
+                    .tls_certs_only(certs)
+                    .build()
+                    .map_err(|e| format!("Failed to build HTTP client with manual certs: {}", e));
+            }
+        }
+    }
+
+    Err("Failed to build HTTP client: platform verifier unavailable and no CA certificates found".to_string())
+}
+
 /// Send a webhook notification
 async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Result<(), String> {
-    let client = Client::builder()
-        .use_rustls_tls()
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+    let client = build_http_client()?;
 
     // Replace placeholder with actual message
     let url = webhook.url.replace("{notif_msg}", message);
