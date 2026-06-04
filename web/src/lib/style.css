@@ -58,6 +58,10 @@ h1 {
 	overflow-x: auto;
 }
 
+.tab-end {
+	margin-left: auto;
+}
+
 a,
 a:visited,
 a:hover,
@@ -312,17 +316,29 @@ a:active {
 }
 
 .chart-controls {
-	margin-bottom: 1rem;
+	background: rgba(255, 255, 255, 0.03);
+	padding: 1rem;
+	border-radius: 10px;
+	margin-bottom: 1.5rem;
 	display: flex;
 	gap: 1rem;
 	flex-wrap: wrap;
 }
 
-.chart-controls label {
+.chart-controls label,
+.switch-row {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	cursor: pointer;
+}
+
+.switch-row {
+	justify-content: space-between;
+	min-width: 220px;
+}
+
+.switch-text {
+	opacity: 0.9;
 }
 
 .chart-controls input[type='checkbox'] {
@@ -340,6 +356,7 @@ a:active {
 	display: inline-block;
 	width: 46px;
 	height: 24px;
+	cursor: pointer;
 }
 
 .switch input {
@@ -380,11 +397,16 @@ input:checked + .slider:before {
 	transform: translateX(22px);
 }
 
-.chart-controls {
-	background: rgba(255, 255, 255, 0.03);
-	padding: 1rem;
-	border-radius: 10px;
-	margin-bottom: 1.5rem;
+.chart-shell {
+	min-height: 40vh;
+}
+
+.chart-shell--compact {
+	min-height: 30vh;
+}
+
+.spacer-sm {
+	height: 2rem;
 }
 
 .chart-controls select {

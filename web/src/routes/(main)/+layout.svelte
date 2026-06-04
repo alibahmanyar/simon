@@ -68,12 +68,7 @@
 				{#if capabilities?.file_serving}
 					<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
 				{/if}
-				<a
-					class="tab home-button"
-					href="notif_methods"
-					style="margin-left: auto;"
-					aria-label="Settings"
-				>
+				<a class="tab home-button tab-end" href="notif_methods" aria-label="Settings">
 					<span style="display: flex; align-items: center; gap:5px;">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
