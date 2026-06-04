@@ -442,7 +442,7 @@ pub async fn get_docker_containers() -> Option<DockerInfo> {
             status: container.status.unwrap_or_default(),
             state: container
                 .state
-                .unwrap_or(bollard::secret::ContainerSummaryStateEnum::EMPTY)
+                .unwrap_or(bollard::models::ContainerSummaryStateEnum::EMPTY)
                 .to_string(),
             created: container.created.unwrap_or(0),
             ports,

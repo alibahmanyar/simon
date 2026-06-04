@@ -356,7 +356,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                     timestamp, cpu_usage, mem_usage, swap_usage, load_avg_1, load_avg_5, load_avg_15
                 ) VALUES (?, ROUND(?,2), ROUND(?,2), ROUND(?,2), ROUND(?,2), ROUND(?,2), ROUND(?,2))",
                 params![
-                    timestamp,
+                    timestamp as i64,
                     general_info.cpu.avg_usage,
                     100.0 * general_info.mem.used_mem as f32 / general_info.mem.total_mem as f32,
                     100.0 * general_info.mem.used_swap as f32 / general_info.mem.total_swap as f32,
@@ -401,10 +401,10 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         timestamp, name, rx, tx, rx_rate, tx_rate
                     ) VALUES (?, ?, ?, ?, ROUND(?), ROUND(?))",
                     params![
-                        timestamp,
+                        timestamp as i64,
                         interface.name,
-                        interface.rx,
-                        interface.tx,
+                        interface.rx as f64,
+                        interface.tx as f64,
                         rx_rate,
                         tx_rate
                     ],
@@ -446,10 +446,10 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         timestamp, name, total_read, total_write, read_rate, write_rate, disk_usage
                     ) VALUES (?, ?, ?, ?, ROUND(?), ROUND(?), ROUND(?,2))",
                     params![
-                        timestamp,
+                        timestamp as i64,
                         disk.mount_point,
-                        disk.io[2],
-                        disk.io[3],
+                        disk.io[2] as f64,
+                        disk.io[3] as f64,
                         read_rate,
                         write_rate,
                         100.0 * (1.0 - disk.free_space as f32 / disk.total_space as f32)
@@ -486,7 +486,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         round(AVG(load_avg_15), 2)
                                     FROM general_s
                                     WHERE timestamp >= ?1 AND timestamp <= ?2;",
-                    params![timestamp - 60, timestamp],
+                    params![(timestamp - 60) as i64, timestamp as i64],
                 );
                 let _ = conn.execute(
                     "INSERT INTO net_m
@@ -508,7 +508,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                     FROM net_s
                                     WHERE timestamp >= ?1 AND timestamp <= ?2
                                     GROUP BY name;",
-                    params![timestamp - 60, timestamp],
+                    params![(timestamp - 60) as i64, timestamp as i64],
                 );
                 let _ = conn.execute(
                     "INSERT INTO disk_m
@@ -532,7 +532,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                     FROM disk_s
                                     WHERE timestamp >= ?1 AND timestamp <= ?2
                                     GROUP BY name;",
-                    params![timestamp - 60, timestamp],
+                    params![(timestamp - 60) as i64, timestamp as i64],
                 );
 
                 // Check if it's an hour boundary
@@ -559,7 +559,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             round(AVG(load_avg_15))
                                         FROM general_m
                                         WHERE timestamp >= ?1 AND timestamp <= ?2;",
-                        params![timestamp - 3600, timestamp],
+                        params![(timestamp - 3600) as i64, timestamp as i64],
                     );
                     let _ = conn.execute(
                         "INSERT INTO net_h
@@ -581,7 +581,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         FROM net_m
                                         WHERE timestamp >= ?1 AND timestamp <= ?2
                                         GROUP BY name;",
-                        params![timestamp - 3600, timestamp],
+                        params![(timestamp - 3600) as i64, timestamp as i64],
                     );
                     let _ = conn.execute(
                         "INSERT INTO disk_h
@@ -605,7 +605,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         FROM disk_m
                                         WHERE timestamp >= ?1 AND timestamp <= ?2
                                         GROUP BY name;",
-                        params![timestamp - 3600, timestamp],
+                        params![(timestamp - 3600) as i64, timestamp as i64],
                     );
                     // Check if it's a day boundary (midnight)
                     if (timestamp / 3600).is_multiple_of(24) {
@@ -631,7 +631,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                                 round(AVG(load_avg_15))
                                             FROM general_h
                                             WHERE timestamp >= ?1 AND timestamp <= ?2;",
-                            params![timestamp - 86400, timestamp],
+                            params![(timestamp - 86400) as i64, timestamp as i64],
                         );
                         let _ = conn.execute(
                             "INSERT INTO net_d
@@ -653,7 +653,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             FROM net_h
                                             WHERE timestamp >= ?1 AND timestamp <= ?2
                                             GROUP BY name;",
-                            params![timestamp - 86400, timestamp],
+                            params![(timestamp - 86400) as i64, timestamp as i64],
                         );
                         let _ = conn.execute(
                             "INSERT INTO disk_d
@@ -677,7 +677,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             FROM disk_h
                                             WHERE timestamp >= ?1 AND timestamp <= ?2
                                             GROUP BY name;",
-                            params![timestamp - 86400, timestamp],
+                            params![(timestamp - 86400) as i64, timestamp as i64],
                         );
 
                         // Clean up older hour metrics (keep 365 days)
@@ -685,7 +685,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         for table_name in ["general_h", "net_h", "disk_h"] {
                             conn.execute(
                                 format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
-                                params![cutoff],
+                                params![cutoff as i64],
                             )
                             .unwrap();
                         }
@@ -698,7 +698,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                     for table_name in ["general_s", "net_s", "disk_s"] {
                         conn.execute(
                             format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
-                            params![cutoff],
+                            params![cutoff as i64],
                         )
                         .unwrap();
                     }
@@ -707,7 +707,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                     for table_name in ["general_m", "net_m", "disk_m"] {
                         conn.execute(
                             format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
-                            params![cutoff],
+                            params![cutoff as i64],
                         )
                         .unwrap();
                     }

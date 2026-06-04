@@ -162,7 +162,7 @@ fn check_alert_condition(db: &Database, alert: &Alert) -> Result<bool, String> {
                 "SELECT {}({}) FROM general_{} WHERE timestamp >= ?",
                 agg_function, alert.var.var, table_suffix
             );
-            conn.query_row(&query, params![start_time], |row| row.get::<_, f64>(0))
+            conn.query_row(&query, params![start_time as i64], |row| row.get::<_, f64>(0))
         }
         "net" | "disk" => {
             // Network or disk metrics need to filter by resource name
@@ -170,7 +170,7 @@ fn check_alert_condition(db: &Database, alert: &Alert) -> Result<bool, String> {
                 "SELECT {}({}) FROM {}_{} WHERE timestamp >= ? AND name = ?",
                 agg_function, alert.var.var, alert.var.cat, table_suffix
             );
-            conn.query_row(&query, params![start_time, alert.var.resrc], |row| {
+            conn.query_row(&query, params![start_time as i64, alert.var.resrc], |row| {
                 row.get::<_, f64>(0)
             })
         }

@@ -1,6 +1,7 @@
 use clap::Parser;
 use log::{debug, error, info};
-use rand::{self, Rng, distr::Alphanumeric};
+use rand::RngExt;
+use rand::{self, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 
