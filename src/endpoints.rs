@@ -28,9 +28,10 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{
     self,
-    io::AsyncWriteExt,
+    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
     time::{Duration, interval},
 };
+use tokio_util::io::ReaderStream;
 
 #[derive(Embed)]
 #[folder = "web/build/static"]
@@ -965,25 +966,37 @@ pub async fn download_file(
                 start, end, file_size, filename
             );
 
-            // Read the requested range
-            match read_file_range(&canonical_path, start, content_length).await {
-                Ok(contents) => (
-                    StatusCode::PARTIAL_CONTENT,
-                    [
-                        ("Content-Type", mime_type.as_str()),
-                        ("Content-Disposition", content_disposition.as_str()),
-                        (
-                            "Content-Range",
-                            &format!("bytes {}-{}/{}", start, end, file_size),
-                        ),
-                        ("Accept-Ranges", "bytes"),
-                        ("Content-Length", &content_length.to_string()),
-                    ],
-                    contents,
-                )
-                    .into_response(),
+            match tokio::fs::File::open(&canonical_path).await {
+                Ok(mut file) => {
+                    if let Err(e) = file.seek(std::io::SeekFrom::Start(start)).await {
+                        error!("Failed to seek file range: {}", e);
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Failed to read file: {}", e),
+                        )
+                            .into_response();
+                    }
+
+                    let stream = ReaderStream::new(file.take(content_length));
+
+                    (
+                        StatusCode::PARTIAL_CONTENT,
+                        [
+                            ("Content-Type", mime_type.as_str()),
+                            ("Content-Disposition", content_disposition.as_str()),
+                            (
+                                "Content-Range",
+                                &format!("bytes {}-{}/{}", start, end, file_size),
+                            ),
+                            ("Accept-Ranges", "bytes"),
+                            ("Content-Length", &content_length.to_string()),
+                        ],
+                        Body::from_stream(stream),
+                    )
+                        .into_response()
+                }
                 Err(e) => {
-                    error!("Failed to read file range: {}", e);
+                    error!("Failed to open file for range stream: {}", e);
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("Failed to read file: {}", e),
@@ -992,10 +1005,11 @@ pub async fn download_file(
                 }
             }
         }
-        _ => {
-            // No range request, serve the entire file
-            match tokio::fs::read(&canonical_path).await {
-                Ok(contents) => (
+        _ => match tokio::fs::File::open(&canonical_path).await {
+            Ok(file) => {
+                let stream = ReaderStream::new(file.take(file_size));
+
+                (
                     StatusCode::OK,
                     [
                         ("Content-Type", mime_type.as_str()),
@@ -1003,37 +1017,20 @@ pub async fn download_file(
                         ("Accept-Ranges", "bytes"),
                         ("Content-Length", &file_size.to_string()),
                     ],
-                    contents,
+                    Body::from_stream(stream),
                 )
-                    .into_response(),
-                Err(e) => {
-                    error!("Failed to read file: {}", e);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to read file: {}", e),
-                    )
-                        .into_response()
-                }
+                    .into_response()
             }
-        }
+            Err(e) => {
+                error!("Failed to open file for streaming: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to read file: {}", e),
+                )
+                    .into_response()
+            }
+        },
     }
-}
-
-/// Reads a specific range of bytes from a file
-async fn read_file_range(
-    path: &std::path::Path,
-    start: u64,
-    length: u64,
-) -> Result<Vec<u8>, std::io::Error> {
-    use tokio::io::{AsyncReadExt, AsyncSeekExt};
-
-    let mut file = tokio::fs::File::open(path).await?;
-    file.seek(std::io::SeekFrom::Start(start)).await?;
-
-    let mut buffer = vec![0u8; length as usize];
-    file.read_exact(&mut buffer).await?;
-
-    Ok(buffer)
 }
 
 pub async fn get_file_content(

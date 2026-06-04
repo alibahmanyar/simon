@@ -2286,6 +2286,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tokio",
+ "tokio-util",
  "tower",
  "tower-http",
  "uuid",
