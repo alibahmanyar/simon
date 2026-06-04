@@ -267,6 +267,21 @@ ci-release:
 install-cross:
 	cargo install cross --git https://github.com/cross-rs/cross
 
+# Format all source code
+.PHONY: format
+format:
+	cargo fmt
+	cd web && bun run format
+
+# Run repository checks
+.PHONY: check
+check:
+	cargo fmt -- --check
+	cargo clippy --all-targets --all-features -- -D warnings
+	cargo check
+	cd web && bun run check
+	cd web && bun run lint
+
 # Install UPX (Ultimate Packer for eXecutables)
 .PHONY: install-upx
 install-upx:
