@@ -890,6 +890,12 @@ pub async fn download_file(
         response
             .headers_mut()
             .insert(axum::http::header::CONTENT_DISPOSITION, header_val);
+        if !is_inline {
+            response.headers_mut().insert(
+                axum::http::header::CONTENT_ENCODING,
+                HeaderValue::from_static("identity"),
+            );
+        }
     }
 
     response
