@@ -185,7 +185,9 @@ export async function getFileContent(
 	path: string
 ): Promise<{ success: true; data: string } | { success: false; error: string }> {
 	try {
-		const response = await fetch(url(`api/files/content?path=${encodeURIComponent(path)}`));
+		const response = await fetch(
+			url(`api/files/download?path=${encodeURIComponent(path)}&inline=true`)
+		);
 
 		if (!response.ok) {
 			return {

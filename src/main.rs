@@ -18,8 +18,8 @@ use db::db_update;
 use endpoints::{
     add_alert, add_notif_method, browse_directory, create_folder, delete_alert, delete_file,
     delete_notif_method, download_file, fallback_handler, get_alert_vars, get_alerts,
-    get_container_logs, get_file_content, get_notif_methods, get_serve_dirs, historical_data,
-    move_file, req_info, serve_static, upload_file, ws_handler_d, ws_handler_g, ws_handler_p,
+    get_container_logs, get_notif_methods, get_serve_dirs, historical_data, move_file, req_info,
+    serve_static, upload_file, ws_handler_d, ws_handler_g, ws_handler_p,
 };
 use log::{debug, error, info};
 use std::net::SocketAddr;
@@ -155,7 +155,6 @@ async fn main() {
         .route("/api/alert_vars", get(get_alert_vars))
         .route("/api/files/dirs", get(get_serve_dirs))
         .route("/api/files/browse", get(browse_directory))
-        .route("/api/files/content", get(get_file_content))
         .route("/api/files/download", get(download_file))
         .route(
             "/api/files/upload",
