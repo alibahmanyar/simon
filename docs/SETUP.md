@@ -47,7 +47,7 @@ Create a `docker-compose.yml` file:
 services:
   simon:
     image: alibahmanyar/simon
-    hostname: simon # Set container hostname (replace with your own)
+    hostname: simon
     ports:
       - "30000:30000"
     environment:
