@@ -1132,8 +1132,8 @@ pub async fn upload_file(
     let mut errors = Vec::new();
     let mut file_count = 0;
 
-    // Set a timeout for the entire multipart parsing operation (60 minutes per field)
-    let field_timeout = Duration::from_secs(3600);
+    // Set a timeout for the entire multipart parsing operation (300 minutes per field)
+    let field_timeout = Duration::from_secs(18000);
 
     // Parse multipart fields
     loop {
