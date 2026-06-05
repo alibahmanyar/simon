@@ -10,7 +10,7 @@ use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{Multipart, Path, Query, Request};
-use axum::http::StatusCode;
+use axum::http::{HeaderValue, StatusCode};
 use axum::{
     extract::{ConnectInfo, State, WebSocketUpgrade},
     http::HeaderMap,
@@ -28,10 +28,11 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::{
     self,
-    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+    io::AsyncWriteExt,
     time::{Duration, interval},
 };
-use tokio_util::io::ReaderStream;
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 
 #[derive(Embed)]
 #[folder = "web/build/static"]
@@ -821,9 +822,9 @@ pub async fn browse_directory(
 }
 
 pub async fn download_file(
-    headers: HeaderMap,
     Query(params): Query<std::collections::HashMap<String, String>>,
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
+    req: Request<Body>,
 ) -> impl IntoResponse {
     if !config.system_capabilities.file_serving {
         return (
@@ -865,28 +866,19 @@ pub async fn download_file(
         return (StatusCode::BAD_REQUEST, "Cannot download a directory").into_response();
     }
 
-    // Get file metadata
-    let metadata = match tokio::fs::metadata(&canonical_path).await {
-        Ok(m) => m,
-        Err(e) => {
-            error!("Failed to read file metadata: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to read file metadata: {}", e),
-            )
-                .into_response();
+    let serve_file = ServeFile::new(&canonical_path);
+
+    let mut response = match serve_file.oneshot(req).await {
+        Ok(res) => res.into_response(),
+        Err(_) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to serve file").into_response();
         }
     };
 
-    let file_size = metadata.len();
     let filename = canonical_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("download");
-
-    let mime_type = mime_guess::from_path(&canonical_path)
-        .first_or_octet_stream()
-        .to_string();
 
     let content_disposition = if is_inline {
         format!("inline; filename=\"{}\"", filename)
@@ -894,143 +886,13 @@ pub async fn download_file(
         format!("attachment; filename=\"{}\"", filename)
     };
 
-    // Check for Range header
-    let range_header = headers.get("range").and_then(|h| h.to_str().ok());
-
-    match range_header {
-        Some(range_str) if range_str.starts_with("bytes=") => {
-            // Parse range request
-            let range_spec = &range_str[6..]; // Skip "bytes="
-
-            // Parse the range (supports single range only for now)
-            let parts: Vec<&str> = range_spec.split('-').collect();
-            if parts.len() != 2 {
-                return (
-                    StatusCode::RANGE_NOT_SATISFIABLE,
-                    [("Content-Range", format!("bytes */{}", file_size))],
-                    "Invalid range",
-                )
-                    .into_response();
-            }
-
-            let start = if parts[0].is_empty() {
-                // Suffix range: last N bytes
-                if let Ok(suffix_len) = parts[1].parse::<u64>() {
-                    file_size.saturating_sub(suffix_len)
-                } else {
-                    return (
-                        StatusCode::RANGE_NOT_SATISFIABLE,
-                        [("Content-Range", format!("bytes */{}", file_size))],
-                        "Invalid range",
-                    )
-                        .into_response();
-                }
-            } else if let Ok(s) = parts[0].parse::<u64>() {
-                s
-            } else {
-                return (
-                    StatusCode::RANGE_NOT_SATISFIABLE,
-                    [("Content-Range", format!("bytes */{}", file_size))],
-                    "Invalid range",
-                )
-                    .into_response();
-            };
-
-            let end = if parts[1].is_empty() {
-                file_size - 1
-            } else if let Ok(e) = parts[1].parse::<u64>() {
-                e.min(file_size - 1)
-            } else {
-                return (
-                    StatusCode::RANGE_NOT_SATISFIABLE,
-                    [("Content-Range", format!("bytes */{}", file_size))],
-                    "Invalid range",
-                )
-                    .into_response();
-            };
-
-            // Validate range
-            if start >= file_size || start > end {
-                return (
-                    StatusCode::RANGE_NOT_SATISFIABLE,
-                    [("Content-Range", format!("bytes */{}", file_size))],
-                    "Range not satisfiable",
-                )
-                    .into_response();
-            }
-
-            let content_length = end - start + 1;
-
-            debug!(
-                "Serving partial content: bytes {}-{}/{} ({})",
-                start, end, file_size, filename
-            );
-
-            match tokio::fs::File::open(&canonical_path).await {
-                Ok(mut file) => {
-                    if let Err(e) = file.seek(std::io::SeekFrom::Start(start)).await {
-                        error!("Failed to seek file range: {}", e);
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("Failed to read file: {}", e),
-                        )
-                            .into_response();
-                    }
-
-                    let stream = ReaderStream::new(file.take(content_length));
-
-                    (
-                        StatusCode::PARTIAL_CONTENT,
-                        [
-                            ("Content-Type", mime_type.as_str()),
-                            ("Content-Disposition", content_disposition.as_str()),
-                            (
-                                "Content-Range",
-                                &format!("bytes {}-{}/{}", start, end, file_size),
-                            ),
-                            ("Accept-Ranges", "bytes"),
-                            ("Content-Length", &content_length.to_string()),
-                        ],
-                        Body::from_stream(stream),
-                    )
-                        .into_response()
-                }
-                Err(e) => {
-                    error!("Failed to open file for range stream: {}", e);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to read file: {}", e),
-                    )
-                        .into_response()
-                }
-            }
-        }
-        _ => match tokio::fs::File::open(&canonical_path).await {
-            Ok(file) => {
-                let stream = ReaderStream::new(file.take(file_size));
-
-                (
-                    StatusCode::OK,
-                    [
-                        ("Content-Type", mime_type.as_str()),
-                        ("Content-Disposition", content_disposition.as_str()),
-                        ("Accept-Ranges", "bytes"),
-                        ("Content-Length", &file_size.to_string()),
-                    ],
-                    Body::from_stream(stream),
-                )
-                    .into_response()
-            }
-            Err(e) => {
-                error!("Failed to open file for streaming: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to read file: {}", e),
-                )
-                    .into_response()
-            }
-        },
+    if let Ok(header_val) = HeaderValue::from_str(&content_disposition) {
+        response
+            .headers_mut()
+            .insert(axum::http::header::CONTENT_DISPOSITION, header_val);
     }
+
+    response
 }
 
 pub async fn get_file_content(
