@@ -294,7 +294,7 @@
 										{#each Array.from(alertVars
 												.filter((v) => v.cat === selectedCategory)
 												.filter((v) => v.resrc === selectedResource)) as alertVar (alertVar.var)}
-											<option value={alertVar.var}>{types2names[alertVar.var]}</option>
+											<option value={alertVar.var}>{types2names[alertVar.var]} ({var2unit[alertVar.var]})</option>
 										{/each}
 									</select>
 								</div>
@@ -303,7 +303,7 @@
 									<label for="category">Property</label>
 									<select id="category" bind:value={selectedProperty} required>
 										{#each Array.from(alertVars.filter((v) => v.cat === selectedCategory)) as alertVar (alertVar.var)}
-											<option value={alertVar.var}>{types2names[alertVar.var]}</option>
+											<option value={alertVar.var}>{types2names[alertVar.var]} ({var2unit[alertVar.var]})</option>
 										{/each}
 									</select>
 								</div>
@@ -320,8 +320,8 @@
 							<div class="form-group">
 								<label for="threshold"
 									>Threshold
-									{#if alertForm.var.var && var2unit[alertForm.var.var]}
-										({var2unit[alertForm.var.var]})
+									{#if selectedProperty && var2unit[selectedProperty]}
+										({var2unit[selectedProperty]})
 									{/if}
 								</label>
 								<input
