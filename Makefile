@@ -256,9 +256,8 @@ ci-release:
 	@$(MAKE) android-x86_64 CLEANUP=true
 	@echo "Completed android-x86_64 - 13/15"
 	@$(MAKE) windows-x86_64 CLEANUP=true
-	@echo "Completed windows-x86_64 - 14/15"
-	@$(MAKE) freebsd-x86_64 CLEANUP=true
-	@echo "Completed freebsd-x86_64 - 15/15"
+	@echo "Completed windows-x86_64 - 14/14"
+	@echo "Skipping freebsd-x86_64 due to outdated cross-rs image (glibc incompatibility)"
 	@echo "Running UPX compression on Linux binaries..."
 	@echo "Finished creating GitHub release artifacts in $(RELEASE_DIR)"
 
@@ -373,8 +372,8 @@ help:
 	@echo "  freebsd-x86_64         64-bit FreeBSD"
 	@echo ""
 	@echo "BATCH BUILD TARGETS"
-	@echo "  all-targets            Build all supported targets (15 platforms)"
-	@echo "  build-gh-release       Build all targets for GitHub release (optimized for CI)"
+	@echo "  all-targets            Build all supported targets (14 platforms)"
+	@echo "  build-gh-release       Build all targets for GitHub release"
 	@echo ""
 	@echo "DOCKER TARGETS"
 	@echo "  docker                 Build Docker image for current platform"
