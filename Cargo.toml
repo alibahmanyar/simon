@@ -17,7 +17,7 @@ serde = { version = "^1.0", features = ["derive"] }
 sysinfo = "^0.39"
 futures = "^0.3"
 serde_json = "^1.0"
-tower-http = { version = "0.6.1", features = ["compression-full", "decompression-full", "fs"] }
+tower-http = { version = "^0.7", features = ["compression-full", "decompression-full", "fs"] }
 bollard = "^0.21"
 futures-util = "^0.3"
 rusqlite = { version = "^0.40", features = ["bundled"] }
@@ -25,7 +25,7 @@ chrono = "^0.4"
 flate2 = "^1.1.0"
 tower = "^0.5.2"
 clap = { version = "^4.5", features = ["derive", "env"] }
-jsonwebtoken = { version = "^10.3", features = ["aws_lc_rs"] }
+jsonwebtoken = { version = "^10.4", features = ["aws_lc_rs"] }
 rand = "^0.10"
 bcrypt = "^0.19"
 uuid = {version = "1.16.0", features = ["v4"]}
