@@ -112,7 +112,10 @@ pub fn parse_config() -> Config {
         }
     }
 
-    debug!("Config: {:?}", config);
+    let mut redacted = config.clone();
+    redacted.jwt_secret = "<redacted>".to_string();
+    redacted.password_hash = redacted.password_hash.map(|_| "<redacted>".to_string());
+    debug!("Config: {:?}", redacted);
 
     config
 }
