@@ -194,6 +194,31 @@ pub struct Alert {
     pub notif_methods: Vec<String>,
 }
 
+impl Alert {
+    /// Validates user-supplied fields before they are stored or used in SQL.
+    pub fn validate(&self) -> Result<(), String> {
+        if !matches!(self.operator.as_str(), ">" | "<") {
+            return Err(format!("Unknown operator: {}", self.operator));
+        }
+        if !(1..=60 * 24 * 30).contains(&self.time_window) {
+            return Err("time_window must be between 1 and 43200 minutes".to_string());
+        }
+        if !self.threshold.is_finite() {
+            return Err("threshold must be a finite number".to_string());
+        }
+        if !ALERT_VARIABLES
+            .iter()
+            .any(|(cat, var)| *cat == self.var.cat && *var == self.var.var)
+        {
+            return Err(format!(
+                "Unknown alert variable: {} {}",
+                self.var.cat, self.var.var
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AlertVar {
     pub cat: String,   // Category
