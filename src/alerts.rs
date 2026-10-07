@@ -1,6 +1,6 @@
 use crate::db::Database;
 use crate::models::{Alert, AlertVar, NotificationConfig, NotificationMethod, WebHookNotif};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use reqwest::Client;
 use reqwest::tls::Certificate;
 use rusqlite::params;
@@ -67,40 +67,41 @@ pub async fn check_alerts(db_path: &str) {
             };
             trace!("Alert firing: {}", is_firing);
 
-            // If alert state has changed, update it in the database
+            // If alert state has changed, notify and then persist the new state
             if is_firing != alert.firing {
                 alert.firing = is_firing;
-                if let Err(e) = update_alert_state(&db, &alert) {
-                    error!("Failed to update alert state: {}", e);
-                }
-
                 if is_firing {
                     info!("Alert fired: {:?}", alert);
-                    let notification_message = format_alert_message(&alert, true);
-
-                    // Send notifications to all configured methods for this alert
-                    for method_id in &alert.notif_methods {
-                        if let Some(method) = method_map.get(method_id)
-                            && method.enabled
-                            && let Err(e) = send_notification(method, &notification_message).await
-                        {
-                            error!("Failed to send notification: {}", e);
-                        }
-                    }
                 } else {
-                    // send the relief
                     info!("Alert relief: {:?}", alert);
-                    let notification_message = format_alert_message(&alert, false);
+                }
+                let notification_message = format_alert_message(&alert, is_firing);
 
-                    // Send notifications to all configured methods for this alert
-                    for method_id in &alert.notif_methods {
-                        if let Some(method) = method_map.get(method_id)
-                            && method.enabled
-                            && let Err(e) = send_notification(method, &notification_message).await
-                        {
-                            error!("Failed to send notification: {}", e);
+                // Send notifications to all configured methods for this alert
+                let mut targets = 0;
+                let mut delivered = 0;
+                for method_id in &alert.notif_methods {
+                    if let Some(method) = method_map.get(method_id)
+                        && method.enabled
+                    {
+                        targets += 1;
+                        match send_notification(method, &notification_message).await {
+                            Ok(()) => delivered += 1,
+                            Err(e) => error!("Failed to send notification: {}", e),
                         }
                     }
+                }
+
+                // If every delivery failed keep the old state so the next check retries.
+                if targets > 0 && delivered == 0 {
+                    warn!(
+                        "No notification delivered for alert {}, will retry",
+                        alert.id
+                    );
+                    continue;
+                }
+                if let Err(e) = update_alert_state(&db, &alert) {
+                    error!("Failed to update alert state: {}", e);
                 }
             }
         }
@@ -131,13 +132,14 @@ fn get_notification_methods(db: &Database) -> Result<Vec<NotificationMethod>, St
 
 /// Check if an alert condition is met consistently across the entire time window
 fn check_alert_condition(db: &Database, alert: &Alert) -> Result<bool, String> {
+    alert.validate()?;
     let time_window_secs = alert.time_window * 60;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| format!("Time error: {}", e))?
         .as_secs();
 
-    let start_time = now - time_window_secs as u64;
+    let start_time = now.saturating_sub(time_window_secs as u64);
 
     // Choose the appropriate table based on the time window
     let table_suffix = if time_window_secs <= 7200 {
@@ -155,33 +157,39 @@ fn check_alert_condition(db: &Database, alert: &Alert) -> Result<bool, String> {
         _ => return Err(format!("Unknown operator: {}", alert.operator)),
     };
 
+    // The data must reach back to the start of the window (within one bucket),
+    // otherwise "sustained for N minutes" cannot be established yet.
+    let bucket_secs: i64 = if table_suffix == "m" { 120 } else { 7200 };
     let query_result = match alert.var.cat.as_str() {
         "sys" => {
             // System metrics are in general_* tables
             let query = format!(
-                "SELECT {}({}) FROM general_{} WHERE timestamp >= ?",
+                "SELECT {}({}), MIN(timestamp) FROM general_{} WHERE timestamp >= ?",
                 agg_function, alert.var.var, table_suffix
             );
             conn.query_row(&query, params![start_time as i64], |row| {
-                row.get::<_, f64>(0)
+                Ok((row.get::<_, Option<f64>>(0)?, row.get::<_, Option<i64>>(1)?))
             })
         }
         "net" | "disk" => {
             // Network or disk metrics need to filter by resource name
             let query = format!(
-                "SELECT {}({}) FROM {}_{} WHERE timestamp >= ? AND name = ?",
+                "SELECT {}({}), MIN(timestamp) FROM {}_{} WHERE timestamp >= ? AND name = ?",
                 agg_function, alert.var.var, alert.var.cat, table_suffix
             );
             conn.query_row(&query, params![start_time as i64, alert.var.resrc], |row| {
-                row.get::<_, f64>(0)
+                Ok((row.get::<_, Option<f64>>(0)?, row.get::<_, Option<i64>>(1)?))
             })
         }
         _ => return Err(format!("Unknown category: {}", alert.var.cat)),
     };
 
     let agg_value = match query_result {
-        Ok(value) => value,
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
+        Ok((Some(value), Some(first_ts))) if first_ts <= start_time as i64 + bucket_secs => value,
+        // Not enough history to cover the whole window yet
+        Ok((Some(_), _)) => return Ok(false),
+        // Aggregates over zero rows (or only NULLs, e.g. swap on hosts without swap) yield NULL
+        Ok((None, _)) | Err(rusqlite::Error::QueryReturnedNoRows) => {
             // No data in the time window
             return Ok(false); // firing=false if there's no data
         }
@@ -230,11 +238,26 @@ async fn send_notification(method: &NotificationMethod, message: &str) -> Result
     }
 }
 
+const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Percent-encodes a value for safe inclusion in a URL.
+fn url_encode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for b in input.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{:02X}", b));
+        }
+    }
+    out
+}
+
 /// Build an HTTP client, loading CA certificates manually if the default
 /// platform verifier fails (e.g. in scratch Docker containers).
 fn build_http_client() -> Result<Client, String> {
     // Try the default builder first (uses rustls-platform-verifier)
-    match Client::builder().build() {
+    match Client::builder().timeout(HTTP_TIMEOUT).build() {
         Ok(client) => return Ok(client),
         Err(e) => {
             debug!(
@@ -259,6 +282,7 @@ fn build_http_client() -> Result<Client, String> {
             if !certs.is_empty() {
                 debug!("Loaded {} CA certificates from {}", certs.len(), path);
                 return Client::builder()
+                    .timeout(HTTP_TIMEOUT)
                     .tls_certs_only(certs)
                     .build()
                     .map_err(|e| format!("Failed to build HTTP client with manual certs: {}", e));
@@ -272,12 +296,23 @@ fn build_http_client() -> Result<Client, String> {
     )
 }
 
+fn render_body(template: &str, message: &str) -> String {
+    let trimmed = template.trim_start();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        let quoted = serde_json::to_string(message).unwrap_or_default();
+        let escaped = quoted.trim_matches('"');
+        template.replace("{notif_msg}", escaped)
+    } else {
+        template.replace("{notif_msg}", message)
+    }
+}
+
 /// Send a webhook notification
 async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Result<(), String> {
     let client = build_http_client()?;
 
     // Replace placeholder with actual message
-    let url = webhook.url.replace("{notif_msg}", message);
+    let url = webhook.url.replace("{notif_msg}", &url_encode(message));
 
     // Prepare headers
     let mut headers = reqwest::header::HeaderMap::new();
@@ -293,18 +328,9 @@ async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Res
     // Build request based on method
     let mut request_builder = match webhook.method.to_uppercase().as_str() {
         "GET" => client.get(&url),
-        "POST" => {
-            let body = webhook.body.replace("{notif_msg}", message);
-            client.post(&url).body(body)
-        }
-        "PUT" => {
-            let body = webhook.body.replace("{notif_msg}", message);
-            client.put(&url).body(body)
-        }
-        "PATCH" => {
-            let body = webhook.body.replace("{notif_msg}", message);
-            client.patch(&url).body(body)
-        }
+        "POST" => client.post(&url).body(render_body(&webhook.body, message)),
+        "PUT" => client.put(&url).body(render_body(&webhook.body, message)),
+        "PATCH" => client.patch(&url).body(render_body(&webhook.body, message)),
         "DELETE" => client.delete(&url),
         _ => return Err(format!("Unsupported HTTP method: {}", webhook.method)),
     };
