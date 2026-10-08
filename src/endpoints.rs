@@ -14,7 +14,7 @@ use axum::http::{HeaderValue, StatusCode};
 use axum::{
     extract::{ConnectInfo, State, WebSocketUpgrade},
     http::HeaderMap,
-    response::{Html, IntoResponse},
+    response::IntoResponse,
 };
 use bollard::query_parameters::LogsOptions;
 use futures::StreamExt;
@@ -53,6 +53,55 @@ fn validate_path_access(path: &str, allowed_dirs: &[String]) -> Option<PathBuf> 
     }
 
     None
+}
+
+/// Turns a client-supplied relative name into a safe relative path.
+/// Only plain components are kept; any `..` (or a prefix/root) rejects the name.
+fn sanitize_relative_path(name: &str) -> Option<PathBuf> {
+    let mut out = PathBuf::new();
+    for comp in std::path::Path::new(&name.replace('\\', "/")).components() {
+        match comp {
+            std::path::Component::Normal(c) => out.push(c),
+            std::path::Component::CurDir | std::path::Component::RootDir => {}
+            _ => return None,
+        }
+    }
+    if out.as_os_str().is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+/// True if the (canonical) path is exactly one of the serve directories.
+fn is_serve_root(path: &std::path::Path, allowed_dirs: &[String]) -> bool {
+    allowed_dirs
+        .iter()
+        .filter_map(|d| PathBuf::from(d).canonicalize().ok())
+        .any(|d| d == path)
+}
+
+/// Escapes a filename for use inside a quoted Content-Disposition value.
+fn content_disposition(kind: &str, filename: &str) -> String {
+    let ascii: String = filename
+        .chars()
+        .map(|c| {
+            if c.is_ascii() && !c.is_ascii_control() && c != '"' && c != '\\' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let mut encoded = String::new();
+    for b in filename.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+            encoded.push(b as char);
+        } else {
+            encoded.push_str(&format!("%{:02X}", b));
+        }
+    }
+    format!("{kind}; filename=\"{ascii}\"; filename*=UTF-8''{encoded}")
 }
 
 /// Generates a unique path by appending a number if the file/folder already exists
@@ -203,7 +252,7 @@ pub async fn req_info(
 
     let headers_str = headers
         .iter()
-        .map(|(k, v)| format!("{}: {}", k, v.to_str().unwrap()))
+        .map(|(k, v)| format!("{}: {}", k, v.to_str().unwrap_or("<non-utf8>")))
         .collect::<Vec<String>>()
         .join("\n");
 
@@ -332,7 +381,13 @@ async fn handle_socket_g(mut socket: WebSocket, sys: Arc<Mutex<System>>, ws_inte
 
 pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoResponse {
     debug!("Getting logs for container: {}", container_id);
-    let docker = bollard::Docker::connect_with_local_defaults().unwrap();
+    let docker = match bollard::Docker::connect_with_local_defaults() {
+        Ok(d) => d,
+        Err(e) => {
+            error!("Failed to connect to Docker: {}", e);
+            return (StatusCode::SERVICE_UNAVAILABLE, "Docker unavailable").into_response();
+        }
+    };
     let options = Some(LogsOptions {
         stdout: true,
         stderr: true,
@@ -366,7 +421,14 @@ pub async fn get_container_logs(Path(container_id): Path<String>) -> impl IntoRe
         }
     }
 
-    Html(logs)
+    (
+        [
+            ("Content-Type", "text/plain; charset=utf-8"),
+            ("X-Content-Type-Options", "nosniff"),
+        ],
+        logs,
+    )
+        .into_response()
 }
 
 // Historical data endpoint
@@ -376,7 +438,7 @@ pub async fn historical_data(
 ) -> impl IntoResponse {
     debug!("Historical data requested: {:?}", params);
     // Open database connection
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
@@ -425,7 +487,7 @@ pub async fn add_notif_method(
     info!("Adding notification method: {}", notification_method.name);
     debug!("Notification method details: {:?}", notification_method);
 
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
@@ -442,7 +504,7 @@ pub async fn add_notif_method(
 
     let mut methods: Vec<NotificationMethod> =
         match db.get_kv_str("notification_methods").unwrap_or_default() {
-            Some(methods) => serde_json::from_str(&methods).unwrap(),
+            Some(methods) => serde_json::from_str(&methods).unwrap_or_default(),
             None => Vec::new(),
         };
 
@@ -464,9 +526,9 @@ pub async fn add_notif_method(
 
     db.set_kv_str(
         "notification_methods",
-        &serde_json::to_string(&methods).unwrap().to_string(),
+        &serde_json::to_string(&methods).unwrap_or_default(),
     )
-    .unwrap();
+    .unwrap_or_else(|e| error!("Failed to save: {}", e));
 
     (StatusCode::CREATED, Json(ApiResponse::success(methods))).into_response()
 }
@@ -474,7 +536,7 @@ pub async fn add_notif_method(
 pub async fn get_notif_methods(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             return Json(ApiResponse::<Vec<NotificationMethod>>::error(format!(
@@ -487,7 +549,7 @@ pub async fn get_notif_methods(
 
     let methods: Vec<NotificationMethod> =
         match db.get_kv_str("notification_methods").unwrap_or_default() {
-            Some(methods) => serde_json::from_str(&methods).unwrap(),
+            Some(methods) => serde_json::from_str(&methods).unwrap_or_default(),
             None => Vec::new(),
         };
 
@@ -498,7 +560,7 @@ pub async fn delete_notif_method(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             return Json(ApiResponse::<Vec<NotificationMethod>>::error(format!(
@@ -511,7 +573,7 @@ pub async fn delete_notif_method(
 
     let mut methods: Vec<NotificationMethod> =
         match db.get_kv_str("notification_methods").unwrap_or_default() {
-            Some(methods) => serde_json::from_str(&methods).unwrap(),
+            Some(methods) => serde_json::from_str(&methods).unwrap_or_default(),
             None => Vec::new(),
         };
 
@@ -519,9 +581,9 @@ pub async fn delete_notif_method(
 
     db.set_kv_str(
         "notification_methods",
-        &serde_json::to_string(&methods).unwrap().to_string(),
+        &serde_json::to_string(&methods).unwrap_or_default(),
     )
-    .unwrap();
+    .unwrap_or_else(|e| error!("Failed to save: {}", e));
 
     Json(ApiResponse::success(methods)).into_response()
 }
@@ -546,10 +608,14 @@ pub async fn add_alert(
     };
     alert.firing = false;
 
+    if let Err(msg) = alert.validate() {
+        return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::error(msg))).into_response();
+    }
+
     info!("Adding alert for {}", alert.var.var);
     debug!("Alert details: {:?}", alert);
 
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
@@ -565,7 +631,7 @@ pub async fn add_alert(
     };
 
     let mut alerts: Vec<models::Alert> = match db.get_kv_str("alerts").unwrap_or_default() {
-        Some(alerts) => serde_json::from_str(&alerts).unwrap(),
+        Some(alerts) => serde_json::from_str(&alerts).unwrap_or_default(),
         None => Vec::new(),
     };
 
@@ -581,9 +647,9 @@ pub async fn add_alert(
 
     db.set_kv_str(
         "alerts",
-        &serde_json::to_string(&alerts).unwrap().to_string(),
+        &serde_json::to_string(&alerts).unwrap_or_default(),
     )
-    .unwrap();
+    .unwrap_or_else(|e| error!("Failed to save: {}", e));
 
     (StatusCode::CREATED, Json(ApiResponse::success(alerts))).into_response()
 }
@@ -591,7 +657,7 @@ pub async fn add_alert(
 pub async fn get_alerts(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             return Json(ApiResponse::<Vec<models::Alert>>::error(format!(
@@ -603,7 +669,7 @@ pub async fn get_alerts(
     };
 
     let alerts: Vec<models::Alert> = match db.get_kv_str("alerts").unwrap_or_default() {
-        Some(alerts) => serde_json::from_str(&alerts).unwrap(),
+        Some(alerts) => serde_json::from_str(&alerts).unwrap_or_default(),
         None => Vec::new(),
     };
 
@@ -616,7 +682,7 @@ pub async fn delete_alert(
 ) -> impl IntoResponse {
     info!("Deleting alert with ID: {}", id);
 
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open database: {}", e);
@@ -629,7 +695,7 @@ pub async fn delete_alert(
     };
 
     let mut alerts: Vec<models::Alert> = match db.get_kv_str("alerts").unwrap_or_default() {
-        Some(alerts) => serde_json::from_str(&alerts).unwrap(),
+        Some(alerts) => serde_json::from_str(&alerts).unwrap_or_default(),
         None => Vec::new(),
     };
 
@@ -637,9 +703,9 @@ pub async fn delete_alert(
 
     db.set_kv_str(
         "alerts",
-        &serde_json::to_string(&alerts).unwrap().to_string(),
+        &serde_json::to_string(&alerts).unwrap_or_default(),
     )
-    .unwrap();
+    .unwrap_or_else(|e| error!("Failed to save: {}", e));
 
     Json(ApiResponse::success(alerts)).into_response()
 }
@@ -647,7 +713,7 @@ pub async fn delete_alert(
 pub async fn get_alert_vars(
     State((_, config)): State<(Arc<Mutex<System>>, Arc<Config>)>,
 ) -> impl IntoResponse {
-    let db = match Database::new(&config.db_path) {
+    let db = match Database::connect(&config.db_path) {
         Ok(db) => db,
         Err(e) => {
             return Json(ApiResponse::<Vec<models::AlertVar>>::error(format!(
@@ -880,22 +946,40 @@ pub async fn download_file(
         .and_then(|n| n.to_str())
         .unwrap_or("download");
 
-    let content_disposition = if is_inline {
-        format!("inline; filename=\"{}\"", filename)
-    } else {
-        format!("attachment; filename=\"{}\"", filename)
-    };
+    let content_disposition =
+        content_disposition(if is_inline { "inline" } else { "attachment" }, filename);
 
     if let Ok(header_val) = HeaderValue::from_str(&content_disposition) {
         response
             .headers_mut()
             .insert(axum::http::header::CONTENT_DISPOSITION, header_val);
-        if !is_inline {
-            response.headers_mut().insert(
-                axum::http::header::CONTENT_ENCODING,
-                HeaderValue::from_static("identity"),
-            );
-        }
+    }
+    if !is_inline {
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_ENCODING,
+            HeaderValue::from_static("identity"),
+        );
+    }
+    // Files are user content served from the app's origin: never let them run
+    // script or be sniffed into an executable type.
+    response.headers_mut().insert(
+        axum::http::header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    let scriptable = response
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|ct| {
+            let ct = ct.to_ascii_lowercase();
+            ct.contains("html") || ct.contains("xml") || ct.contains("svg")
+        })
+        .unwrap_or(true);
+    if scriptable {
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static("sandbox; default-src 'none'; style-src 'unsafe-inline'"),
+        );
     }
 
     response
@@ -1032,16 +1116,12 @@ pub async fn upload_file(
 
             debug!("Processing file: {}", file_name);
 
-            // Clean up the relative path (remove leading slashes, etc.)
-            // Remove .. from the path to prevent directory traversal
-            let canonical_file_name = PathBuf::from(
-                file_name
-                    .trim_start_matches('/')
-                    .replace("../", "")
-                    .replace("/..", "")
-                    .replace("\\..", "")
-                    .replace("..\\", ""),
-            );
+            // Only plain path components are accepted (no `..`), so the file
+            // always stays below the validated base directory.
+            let Some(canonical_file_name) = sanitize_relative_path(file_name) else {
+                errors.push(format!("{}: Invalid file name", file_name));
+                continue;
+            };
 
             // Construct the full file path
             let mut file_path = canonical_base_path.join(canonical_file_name);
@@ -1052,7 +1132,7 @@ pub async fn upload_file(
                 debug!("File exists, renamed to: {:?}", file_path);
             }
 
-            let file_path_str = file_path.to_str().unwrap();
+            let file_path_str = file_path.to_string_lossy().to_string();
 
             // Create parent directories if they don't exist (for folder uploads)
             if let Some(parent) = file_path.parent()
@@ -1062,14 +1142,17 @@ pub async fn upload_file(
                 error!("Failed to create directory {:?}: {}", parent, e);
                 errors.push(format!(
                     "{}: Failed to create directory",
-                    parent.to_str().unwrap()
+                    parent.to_string_lossy()
                 ));
                 continue;
             }
 
             // Stream the file directly to disk
             let file_result: Result<u64, String> = async {
-                let mut file = tokio::fs::File::create(&file_path)
+                let mut file = tokio::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&file_path)
                     .await
                     .map_err(|e| format!("Failed to create file: {}", e))?;
                 let mut stream = field;
@@ -1112,6 +1195,7 @@ pub async fn upload_file(
                     uploaded_files.push(uploaded_name);
                 }
                 Err(e) => {
+                    let _ = tokio::fs::remove_file(&file_path).await;
                     error!("Failed to write file {:?}: {}", file_path, e);
                     errors.push(format!("{}: {}", file_path_str, e));
                 }
@@ -1226,14 +1310,15 @@ pub async fn create_folder(
     }
 
     // Construct the folder path
-    let canonical_folder_name = PathBuf::from(
-        folder_name
-            .trim_start_matches("/")
-            .replace("../", "")
-            .replace("/..", "")
-            .replace("\\..", "")
-            .replace("..\\", ""),
-    );
+    let Some(canonical_folder_name) = sanitize_relative_path(folder_name) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "Invalid folder name".to_string(),
+            )),
+        )
+            .into_response();
+    };
     let mut folder_path = canonical_path.join(canonical_folder_name.clone());
 
     // Check if folder exists and rename if necessary
@@ -1298,75 +1383,80 @@ pub async fn move_file(
     };
 
     let source = &payload.source;
-    let mut destination = payload.destination.clone();
+    let destination = &payload.destination;
 
     debug!("Moving: {} to {}", source, destination);
 
-    let source_path = PathBuf::from(source.clone());
-    let mut destination_path = PathBuf::from(&destination);
-    destination = destination
-        .replace("../", "")
-        .replace("/..", "")
-        .replace("\\..", "")
-        .replace("..\\", "");
+    let deny = || {
+        warn!("Access denied moving {} to {}", source, destination);
+        (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error("Access denied".to_string())),
+        )
+            .into_response()
+    };
 
-    if destination_path.is_dir() {
-        if let Some(file_name) = source_path.file_name() {
-            destination_path.push(file_name);
-        }
-        println!(
-            "Destination is a directory, new destination: {:?}",
-            destination_path
-        );
+    // Resolve the source's parent (so a symlink as the last component is moved,
+    // not followed) and make sure the file name is a plain component.
+    let source_raw = PathBuf::from(source);
+    let (Some(source_parent), Some(source_name)) = (source_raw.parent(), source_raw.file_name())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "Invalid source path".to_string(),
+            )),
+        )
+            .into_response();
+    };
+    let Some(source_parent) =
+        validate_path_access(&source_parent.to_string_lossy(), &config.serve_dirs)
+    else {
+        return deny();
+    };
+    let source_path = source_parent.join(source_name);
+    if is_serve_root(&source_path, &config.serve_dirs) {
+        return deny();
     }
 
-    let source_parent = match source_path.parent() {
-        Some(p) => p.to_str().unwrap(),
+    // The destination is either an existing directory (keep the name) or a new
+    // path whose parent is an existing directory.
+    let destination_raw = PathBuf::from(destination);
+    let destination_path = match validate_path_access(destination, &config.serve_dirs) {
+        Some(dir) if dir.is_dir() => dir.join(source_name),
+        Some(existing) => existing,
         None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Invalid source path".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    };
-    // Security check: Ensure the source is within one of the allowed serve_dirs
-    if validate_path_access(source_parent, &config.serve_dirs).is_none() {
-        warn!("Access denied to path: {}", source);
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ApiResponse::<String>::error("Access denied".to_string())),
-        )
-            .into_response();
-    };
-
-    let destination_parent = match destination_path.parent() {
-        Some(p) => p.to_str().unwrap(),
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ApiResponse::<String>::error(
-                    "Invalid destination path".to_string(),
-                )),
-            )
-                .into_response();
+            let (Some(parent), Some(name)) =
+                (destination_raw.parent(), destination_raw.file_name())
+            else {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiResponse::<String>::error(
+                        "Invalid destination path".to_string(),
+                    )),
+                )
+                    .into_response();
+            };
+            let Some(parent) = validate_path_access(&parent.to_string_lossy(), &config.serve_dirs)
+            else {
+                return deny();
+            };
+            parent.join(name)
         }
     };
 
-    // Security check: Ensure the destination is within one of the allowed serve_dirs
-    if validate_path_access(destination_parent, &config.serve_dirs).is_none() {
-        warn!("Access denied to path: {}", destination);
+    // Don't move a directory into itself.
+    if destination_path.starts_with(&source_path) {
         return (
-            StatusCode::FORBIDDEN,
-            Json(ApiResponse::<String>::error("Access denied".to_string())),
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<String>::error(
+                "Cannot move a folder into itself".to_string(),
+            )),
         )
             .into_response();
-    };
+    }
 
     // Check if target already exists
-    println!("Checking if destination exists: {:?}", destination_path);
     if destination_path.exists() {
         let name = destination_path
             .file_name()
@@ -1461,6 +1551,16 @@ pub async fn delete_file(
                 .into_response();
         }
     };
+
+    if is_serve_root(&canonical_path, &config.serve_dirs) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::<String>::error(
+                "Cannot delete a root serve directory".to_string(),
+            )),
+        )
+            .into_response();
+    }
 
     let is_dir = canonical_path.is_dir();
     let name = canonical_path

@@ -15,6 +15,18 @@ pub struct Database {
 }
 
 impl Database {
+    /// Opens a lightweight connection to an already-initialised database.
+    /// Schema creation and WAL mode are done once by `new` at startup (WAL is
+    /// persistent in the file), so request handlers can skip that work.
+    pub fn connect(db_path: &str) -> Result<Self> {
+        let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA synchronous = NORMAL;")?;
+        Ok(Database {
+            conn: Arc::new(Mutex::new(conn)),
+        })
+    }
+
+    /// Opens the database and creates the schema if needed. Call once at startup.
     pub fn new(db_path: &str) -> Result<Self> {
         let conn = Connection::open(db_path)?;
 
@@ -329,6 +341,15 @@ impl Database {
     }
 }
 
+/// Percentage of `part` in `total`, 0 when `total` is 0 (avoids NaN/NULL rows).
+fn pct(part: u64, total: u64) -> f32 {
+    if total == 0 {
+        0.0
+    } else {
+        100.0 * part as f32 / total as f32
+    }
+}
+
 pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
     let db = match Database::new(db_path) {
         Ok(db) => Arc::new(db),
@@ -339,6 +360,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
     };
     let mut last_info: Option<GeneralInfo> = None;
     let mut last_timestamp: Option<u64> = None;
+    let mut last_bucket: Option<u64> = None;
     loop {
         let general_info = {
             let sys = sys.lock().unwrap();
@@ -358,14 +380,15 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                 params![
                     timestamp as i64,
                     general_info.cpu.avg_usage,
-                    100.0 * general_info.mem.used_mem as f32 / general_info.mem.total_mem as f32,
-                    100.0 * general_info.mem.used_swap as f32 / general_info.mem.total_swap as f32,
+                    pct(general_info.mem.used_mem, general_info.mem.total_mem),
+                    pct(general_info.mem.used_swap, general_info.mem.total_swap),
                     general_info.sys.load_avg[0],
                     general_info.sys.load_avg[1],
                     general_info.sys.load_avg[2]
                 ],
             )
-            .unwrap();
+            .map_err(|e| error!("Database write failed: {}", e))
+.ok();
 
             for interface in general_info.net.interfaces.iter() {
                 let mut rx_rate = 0.0;
@@ -409,7 +432,8 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         tx_rate
                     ],
                 )
-                .unwrap();
+                .map_err(|e| error!("Database write failed: {}", e))
+                .ok();
             }
 
             for disk in general_info.disk.disks.iter() {
@@ -452,15 +476,19 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                         disk.io[3] as f64,
                         read_rate,
                         write_rate,
-                        100.0 * (1.0 - disk.free_space as f32 / disk.total_space as f32)
+                        pct(
+                            disk.total_space.saturating_sub(disk.free_space),
+                            disk.total_space
+                        )
                     ],
                 )
-                .unwrap();
+                .map_err(|e| error!("Database write failed: {}", e))
+                .ok();
             }
 
-            // if skipped over the minute mark still need to aggregate the last minute's data
-
-            if timestamp % 60 < STORE_INTERVAL {
+            // Aggregate once per minute bucket, even if a tick was delayed past the boundary
+            let bucket = timestamp - (timestamp % 60);
+            if last_bucket.is_some_and(|b| bucket > b) {
                 // We have passed (or are on) a minute boundary
                 // Set timestamp to the minute boundary
                 let timestamp = timestamp - (timestamp % 60);
@@ -485,7 +513,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         round(AVG(load_avg_5), 2),
                                         round(AVG(load_avg_15), 2)
                                     FROM general_s
-                                    WHERE timestamp >= ?1 AND timestamp <= ?2;",
+                                    WHERE timestamp >= ?1 AND timestamp < ?2;",
                     params![(timestamp - 60) as i64, timestamp as i64],
                 );
                 let _ = conn.execute(
@@ -506,7 +534,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         round(AVG(rx_rate)),
                                         round(AVG(tx_rate))
                                     FROM net_s
-                                    WHERE timestamp >= ?1 AND timestamp <= ?2
+                                    WHERE timestamp >= ?1 AND timestamp < ?2
                                     GROUP BY name;",
                     params![(timestamp - 60) as i64, timestamp as i64],
                 );
@@ -530,10 +558,31 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         round(AVG(write_rate)),
                                         round(AVG(disk_usage), 2)
                                     FROM disk_s
-                                    WHERE timestamp >= ?1 AND timestamp <= ?2
+                                    WHERE timestamp >= ?1 AND timestamp < ?2
                                     GROUP BY name;",
                     params![(timestamp - 60) as i64, timestamp as i64],
                 );
+
+                // Clean up older second data (keep 1 hours)
+                let cutoff = timestamp - 3600;
+                for table_name in ["general_s", "net_s", "disk_s"] {
+                    conn.execute(
+                        format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
+                        params![cutoff as i64],
+                    )
+                    .map_err(|e| error!("Database write failed: {}", e))
+                    .ok();
+                }
+                // Clean up older minute metrics (keep 96 hours)
+                let cutoff = timestamp - (86400 * 4);
+                for table_name in ["general_m", "net_m", "disk_m"] {
+                    conn.execute(
+                        format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
+                        params![cutoff as i64],
+                    )
+                    .map_err(|e| error!("Database write failed: {}", e))
+                    .ok();
+                }
 
                 // Check if it's an hour boundary
                 if (timestamp / 60).is_multiple_of(60) {
@@ -551,14 +600,14 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                         )
                                         SELECT 
                                             ?2,
-                                            round(AVG(cpu_usage)),
-                                            round(AVG(mem_usage)),
-                                            round(AVG(swap_usage)),
-                                            round(AVG(load_avg_1)),
-                                            round(AVG(load_avg_5)),
-                                            round(AVG(load_avg_15))
+                                            round(AVG(cpu_usage), 2),
+                                            round(AVG(mem_usage), 2),
+                                            round(AVG(swap_usage), 2),
+                                            round(AVG(load_avg_1), 2),
+                                            round(AVG(load_avg_5), 2),
+                                            round(AVG(load_avg_15), 2)
                                         FROM general_m
-                                        WHERE timestamp >= ?1 AND timestamp <= ?2;",
+                                        WHERE timestamp > ?1 AND timestamp <= ?2;",
                         params![(timestamp - 3600) as i64, timestamp as i64],
                     );
                     let _ = conn.execute(
@@ -579,7 +628,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             round(AVG(rx_rate)),
                                             round(AVG(tx_rate))
                                         FROM net_m
-                                        WHERE timestamp >= ?1 AND timestamp <= ?2
+                                        WHERE timestamp > ?1 AND timestamp <= ?2
                                         GROUP BY name;",
                         params![(timestamp - 3600) as i64, timestamp as i64],
                     );
@@ -603,7 +652,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             round(AVG(write_rate)),
                                             round(AVG(disk_usage), 2)
                                         FROM disk_m
-                                        WHERE timestamp >= ?1 AND timestamp <= ?2
+                                        WHERE timestamp > ?1 AND timestamp <= ?2
                                         GROUP BY name;",
                         params![(timestamp - 3600) as i64, timestamp as i64],
                     );
@@ -623,14 +672,14 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                             )
                                             SELECT 
                                                 ?2,
-                                                round(AVG(cpu_usage)),
-                                                round(AVG(mem_usage)),
-                                                round(AVG(swap_usage)),
-                                                round(AVG(load_avg_1)),
-                                                round(AVG(load_avg_5)),
-                                                round(AVG(load_avg_15))
+                                                round(AVG(cpu_usage), 2),
+                                                round(AVG(mem_usage), 2),
+                                                round(AVG(swap_usage), 2),
+                                                round(AVG(load_avg_1), 2),
+                                                round(AVG(load_avg_5), 2),
+                                                round(AVG(load_avg_15), 2)
                                             FROM general_h
-                                            WHERE timestamp >= ?1 AND timestamp <= ?2;",
+                                            WHERE timestamp > ?1 AND timestamp <= ?2;",
                             params![(timestamp - 86400) as i64, timestamp as i64],
                         );
                         let _ = conn.execute(
@@ -651,7 +700,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                                 round(AVG(rx_rate)),
                                                 round(AVG(tx_rate))
                                             FROM net_h
-                                            WHERE timestamp >= ?1 AND timestamp <= ?2
+                                            WHERE timestamp > ?1 AND timestamp <= ?2
                                             GROUP BY name;",
                             params![(timestamp - 86400) as i64, timestamp as i64],
                         );
@@ -675,7 +724,7 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                                 round(AVG(write_rate)),
                                                 round(AVG(disk_usage), 2)
                                             FROM disk_h
-                                            WHERE timestamp >= ?1 AND timestamp <= ?2
+                                            WHERE timestamp > ?1 AND timestamp <= ?2
                                             GROUP BY name;",
                             params![(timestamp - 86400) as i64, timestamp as i64],
                         );
@@ -687,32 +736,20 @@ pub async fn db_update(sys: Arc<Mutex<System>>, db_path: &str) {
                                 format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
                                 params![cutoff as i64],
                             )
-                            .unwrap();
+                            .map_err(|e| error!("Database write failed: {}", e))
+                            .ok();
                         }
                         // Run VACCUM
-                        conn.execute("VACUUM", []).unwrap();
-                        conn.execute("pragma optimize", []).unwrap();
-                    }
-                    // Clean up older second data (keep 1 hours)
-                    let cutoff = timestamp - 3600;
-                    for table_name in ["general_s", "net_s", "disk_s"] {
-                        conn.execute(
-                            format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
-                            params![cutoff as i64],
-                        )
-                        .unwrap();
-                    }
-                    // Clean up older minute metrics (keep 96 hours)
-                    let cutoff = timestamp - (86400 * 4);
-                    for table_name in ["general_m", "net_m", "disk_m"] {
-                        conn.execute(
-                            format!("DELETE FROM {} WHERE timestamp < ?", table_name).as_str(),
-                            params![cutoff as i64],
-                        )
-                        .unwrap();
+                        conn.execute("VACUUM", [])
+                            .map_err(|e| error!("Database write failed: {}", e))
+                            .ok();
+                        conn.execute("pragma optimize", [])
+                            .map_err(|e| error!("Database write failed: {}", e))
+                            .ok();
                     }
                 }
             }
+            last_bucket = Some(bucket);
             last_info = Some(general_info.clone());
             last_timestamp = Some(timestamp);
         }
