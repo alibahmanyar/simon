@@ -4,6 +4,14 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Simon - Authentication</title>
+		<script>
+			try {
+				var t = localStorage.getItem('simon-theme');
+				if (t !== 'light' && t !== 'dark')
+					t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+				document.documentElement.dataset.theme = t;
+			} catch (e) {}
+		</script>
 		<style>
 			* {
 				margin: 0;
@@ -12,21 +20,46 @@
 				font-family: 'Inter', sans-serif;
 			}
 			:root {
-				background: #171721;
+				color-scheme: dark;
+				--fg-rgb: 255, 255, 255;
+				--bg: #0f0f13;
+				--bg-alt: #171721;
+				--text: #e1e1e3;
+				--card-bg: rgba(255, 255, 255, 0.03);
+				--card-border: rgba(255, 255, 255, 0.05);
+				--shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+				--accent: #4ade80;
+				--blue: #3b82f6;
+				background: var(--bg-alt);
+			}
+			:root[data-theme='light'] {
+				color-scheme: light;
+				--fg-rgb: 15, 23, 42;
+				--bg: #e9ecf2;
+				--bg-alt: #f6f7fa;
+				--text: #1f2330;
+				--card-bg: #ffffff;
+				--card-border: rgba(15, 23, 42, 0.08);
+				--shadow: 0 4px 20px 0 rgba(15, 23, 42, 0.08);
+				--accent: #15803d;
+				--blue: #2563eb;
+			}
+			[data-theme='light'] h1 {
+				text-shadow: none;
 			}
 			body {
-				background: #0f0f13;
-				color: #e1e1e3;
+				background: var(--bg);
+				color: var(--text);
 				padding: 2rem;
 				min-height: 100vh;
-				background: linear-gradient(135deg, #0f0f13 0%, #171721 100%);
+				background: linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%);
 			}
 
 			h1 {
 				text-align: center;
 				margin-bottom: 2rem;
 				font-size: 2.5rem;
-				background: linear-gradient(45deg, #4ade80, #3b82f6);
+				background: linear-gradient(45deg, var(--accent), var(--blue));
 				-webkit-background-clip: text;
 				background-clip: text;
 				-webkit-text-fill-color: transparent;
@@ -43,19 +76,19 @@
 			}
 
 			.auth-card {
-				background: rgba(255, 255, 255, 0.03);
+				background: var(--card-bg);
 				border-radius: 15px;
 				padding: 2rem;
 				backdrop-filter: blur(10px);
-				border: 1px solid rgba(255, 255, 255, 0.05);
-				box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+				border: 1px solid var(--card-border);
+				box-shadow: var(--shadow);
 				transition: all 0.3s ease;
 				width: 100%;
 				max-width: 400px;
 			}
 
 			.auth-card:hover {
-				border-color: rgba(255, 255, 255, 0.1);
+				border-color: rgba(var(--fg-rgb), 0.1);
 				box-shadow: 0 8px 32px 0 rgba(74, 222, 128, 0.1);
 			}
 
@@ -66,9 +99,9 @@
 			input {
 				width: 100%;
 				padding: 0.8rem 1rem;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				color: #e1e1e3;
+				background: rgba(var(--fg-rgb), 0.05);
+				border: 1px solid rgba(var(--fg-rgb), 0.1);
+				color: var(--text);
 				border-radius: 8px;
 				font-size: 1rem;
 				transition: all 0.3s ease;
@@ -81,13 +114,13 @@
 			}
 
 			input::placeholder {
-				color: rgba(225, 225, 227, 0.5);
+				color: rgba(var(--fg-rgb), 0.5);
 			}
 
 			.auth-button {
 				width: 100%;
 				padding: 0.8rem;
-				background: linear-gradient(90deg, #3b82f6, #4ade80);
+				background: linear-gradient(90deg, var(--blue), var(--accent));
 				border: none;
 				border-radius: 8px;
 				color: white;

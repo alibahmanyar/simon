@@ -2,6 +2,7 @@
 	import '$lib/style.css';
 	let { children } = $props();
 	import { page } from '$app/state';
+	import ThemeToggle from '$lib/ThemeToggle.svelte';
 </script>
 
 <h1>Simon</h1>
@@ -26,6 +27,7 @@
 				<path d="M12 5l7 7-7 7"></path>
 			</svg>
 		</a>
+		<ThemeToggle />
 	</nav>
 	{@render children()}
 </div>

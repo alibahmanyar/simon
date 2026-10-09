@@ -5,6 +5,15 @@
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Simon</title>
+		<script>
+			// Set the theme before first paint to avoid a flash; see src/lib/theme.svelte.ts
+			try {
+				var t = localStorage.getItem('simon-theme');
+				if (t !== 'light' && t !== 'dark')
+					t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+				document.documentElement.dataset.theme = t;
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

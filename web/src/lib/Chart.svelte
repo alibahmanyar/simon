@@ -1,5 +1,6 @@
 <script lang="ts">
 	import chartjs, { type ChartConfiguration } from 'chart.js/auto';
+	import { applyChartJsColors, getChartColors } from '$lib/theme.svelte';
 
 	let { timestamps, data, labels, colors, bg_colors, fills, yAxisLabel, autoScale } = $props();
 
@@ -36,6 +37,8 @@
 		datasets: datasets
 	}));
 
+	let chartColors = $derived(getChartColors());
+
 	let chartConfig = $derived.by(
 		() =>
 			({
@@ -51,13 +54,13 @@
 							title: {
 								display: true,
 								text: yAxisLabel,
-								color: '#e1e1e3'
+								color: chartColors.text
 							},
 							grid: {
-								color: 'rgba(255, 255, 255, 0.1)'
+								color: chartColors.grid
 							},
 							ticks: {
-								color: '#e1e1e3',
+								color: chartColors.text,
 								autoSkip: true
 							},
 							suggestedMin: autoScale ? undefined : 0,
@@ -65,10 +68,10 @@
 						},
 						x: {
 							grid: {
-								color: 'rgba(255, 255, 255, 0.1)'
+								color: chartColors.grid
 							},
 							ticks: {
-								color: '#e1e1e3',
+								color: chartColors.text,
 								callback: function (_value: unknown, index: number) {
 									if (timestamps_padded[index] === 0) return '';
 									return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
@@ -78,7 +81,7 @@
 					},
 					plugins: {
 						legend: {
-							labels: { color: '#e1e1e3' }
+							labels: { color: chartColors.text }
 						}
 					}
 				}
@@ -108,6 +111,12 @@
 				chart.update();
 			}
 		}
+	});
+
+	// Recolor the existing chart when the theme changes
+	$effect(() => {
+		const colors = chartColors;
+		if (chart) applyChartJsColors(chart, colors);
 	});
 </script>
 

@@ -8,13 +8,13 @@
 .empty-state {
 	text-align: center;
 	padding: 3rem;
-	border: 1px dashed rgba(255, 255, 255, 0.1);
+	border: 1px dashed rgba(var(--fg-rgb), 0.1);
 	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.03);
+	background: rgba(var(--fg-rgb), 0.03);
 }
 
 .hint {
-	color: rgba(255, 255, 255, 0.6);
+	color: rgba(var(--fg-rgb), 0.6);
 	font-size: 0.9rem;
 }
 
@@ -23,16 +23,16 @@
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem;
-	border: 1px solid rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--card-border);
 	border-radius: 15px;
-	background-color: rgba(255, 255, 255, 0.03);
+	background-color: var(--card-bg);
 	backdrop-filter: blur(10px);
-	box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+	box-shadow: var(--shadow);
 	transition: all 0.3s ease;
 }
 
 .source-item:hover {
-	border-color: rgba(255, 255, 255, 0.1);
+	border-color: rgba(var(--fg-rgb), 0.1);
 	box-shadow: 0 8px 32px 0 rgba(74, 222, 128, 0.1);
 }
 
@@ -43,11 +43,11 @@
 .source-info h3 {
 	margin: 0;
 	margin-bottom: 0.5rem;
-	color: #e1e1e3;
+	color: var(--text);
 }
 
 .url {
-	color: rgba(255, 255, 255, 0.6);
+	color: rgba(var(--fg-rgb), 0.6);
 	margin: 0.25rem 0;
 	word-break: break-all;
 	max-width: 90%;
@@ -56,25 +56,25 @@
 .method-badge {
 	display: inline-block;
 	padding: 0.2rem 0.5rem;
-	background-color: rgba(255, 255, 255, 0.05);
+	background-color: rgba(var(--fg-rgb), 0.05);
 	border-radius: 4px;
 	font-size: 0.8rem;
 	margin-right: 0.5rem;
-	color: #e1e1e3;
+	color: var(--text);
 }
 
 .status-badge {
 	display: inline-block;
 	padding: 0.2rem 0.5rem;
-	background-color: rgba(255, 255, 255, 0.05);
-	color: rgba(255, 255, 255, 0.7);
+	background-color: rgba(var(--fg-rgb), 0.05);
+	color: rgba(var(--fg-rgb), 0.7);
 	border-radius: 4px;
 	font-size: 0.8rem;
 }
 
 .status-badge.enabled {
 	background-color: rgba(74, 222, 128, 0.15);
-	color: #4ade80;
+	color: var(--accent);
 	text-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
 }
 
@@ -93,17 +93,17 @@
 }
 
 .action-btn.toggle {
-	background-color: rgba(255, 255, 255, 0.05);
-	color: #e1e1e3;
+	background-color: rgba(var(--fg-rgb), 0.05);
+	color: var(--text);
 }
 
 .action-btn.toggle:hover {
-	background-color: rgba(255, 255, 255, 0.1);
+	background-color: rgba(var(--fg-rgb), 0.1);
 }
 
 .action-btn.delete {
 	background-color: rgba(239, 68, 68, 0.15);
-	color: #ef4444;
+	color: var(--danger);
 }
 
 .action-btn.delete:hover {
@@ -117,7 +117,7 @@
 	width: 56px;
 	height: 56px;
 	border-radius: 50%;
-	background: linear-gradient(45deg, #4ade80, #3b82f6);
+	background: linear-gradient(45deg, var(--accent), var(--blue));
 	color: white;
 	display: flex;
 	align-items: center;
@@ -152,12 +152,12 @@
 .dialog {
 	width: 90%;
 	max-width: 550px;
-	background-color: #171721;
-	border: 1px solid rgba(255, 255, 255, 0.05);
+	background-color: var(--bg-elevated);
+	border: 1px solid var(--card-border);
 	border-radius: 15px;
 	padding: 1.5rem;
-	box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-	color: #e1e1e3;
+	box-shadow: var(--shadow);
+	color: var(--text);
 	max-height: 95vh;
 	overflow-y: auto;
 	z-index: 200;
@@ -171,7 +171,7 @@
 	display: block;
 	margin-bottom: 0.5rem;
 	font-weight: 500;
-	color: rgba(255, 255, 255, 0.8);
+	color: rgba(var(--fg-rgb), 0.8);
 }
 
 .settings input,
@@ -179,9 +179,9 @@
 .settings textarea {
 	width: 100%;
 	padding: 0.75rem;
-	background: rgba(255, 255, 255, 0.05);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	color: #e1e1e3;
+	background: rgba(var(--fg-rgb), 0.05);
+	border: 1px solid rgba(var(--fg-rgb), 0.1);
+	color: var(--text);
 	border-radius: 8px;
 	font-size: 1rem;
 	font-family: inherit;
@@ -199,7 +199,7 @@
 .settings input:hover,
 .settings select:hover,
 .settings textarea:hover {
-	background-color: rgba(255, 255, 255, 0.08);
+	background-color: rgba(var(--fg-rgb), 0.08);
 }
 
 .settings textarea {
@@ -218,8 +218,8 @@
 }
 
 .settings option {
-	background-color: #171721;
-	color: #e1e1e3;
+	background-color: var(--bg-elevated);
+	color: var(--text);
 	padding: 0.75rem;
 	font-size: 1rem;
 }
@@ -246,17 +246,17 @@ option:focus {
 }
 
 .settings button.cancel {
-	background-color: rgba(255, 255, 255, 0.05);
-	color: #e1e1e3;
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background-color: rgba(var(--fg-rgb), 0.05);
+	color: var(--text);
+	border: 1px solid rgba(var(--fg-rgb), 0.1);
 }
 
 .settings button.cancel:hover {
-	background-color: rgba(255, 255, 255, 0.08);
+	background-color: rgba(var(--fg-rgb), 0.08);
 }
 
 .settings button.submit {
-	background: linear-gradient(45deg, #4ade80, #3b82f6);
+	background: linear-gradient(45deg, var(--accent), var(--blue));
 	color: white;
 	border: none;
 	box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
@@ -271,8 +271,8 @@ option:focus {
 	align-items: center;
 	gap: 0.5rem;
 	background-color: rgba(23, 255, 236, 0.2);
-	color: #e1e1e3;
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: var(--text);
+	border: 1px solid rgba(var(--fg-rgb), 0.1);
 }
 .settings button.test:hover {
 	background-color: rgba(23, 255, 236, 0.1);
@@ -295,8 +295,8 @@ option:focus {
 	align-items: center;
 	justify-content: center;
 	padding: 1.25rem 0.75rem;
-	background: rgba(255, 255, 255, 0.03);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(var(--fg-rgb), 0.03);
+	border: 1px solid rgba(var(--fg-rgb), 0.1);
 	border-radius: 12px;
 	cursor: pointer;
 	transition: all 0.3s ease;
@@ -305,7 +305,7 @@ option:focus {
 }
 
 .template-card:hover {
-	background: rgba(255, 255, 255, 0.06);
+	background: rgba(var(--fg-rgb), 0.06);
 	border-color: rgba(74, 222, 128, 0.3);
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
@@ -321,18 +321,19 @@ option:focus {
 	font-size: 2rem;
 	margin-bottom: 0.5rem;
 	display: block;
+	color: var(--text);
 }
 
 .template-card h3 {
 	font-size: 0.95rem;
 	margin: 0.5rem 0 0.25rem 0;
-	color: #e1e1e3;
+	color: var(--text);
 	font-weight: 600;
 }
 
 .template-card .hint {
 	font-size: 0.75rem;
 	line-height: 1.3;
-	color: rgba(255, 255, 255, 0.5);
+	color: rgba(var(--fg-rgb), 0.5);
 	margin: 0;
 }

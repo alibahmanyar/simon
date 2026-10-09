@@ -1,5 +1,6 @@
 <script lang="ts">
 	import chartjs, { type ChartConfiguration } from 'chart.js/auto';
+	import { applyChartJsColors, getChartColors } from '$lib/theme.svelte';
 
 	let { timestamps, data, yAxisLabel, autoScale, cores, show_avg, show_cores } = $props();
 
@@ -30,6 +31,8 @@
 		datasets: [getDataset('System Average', '#4ade80', '#4ade8033', true)]
 	};
 
+	let chartColors = $derived(getChartColors());
+
 	let chartConfig = $derived.by(
 		() =>
 			({
@@ -45,13 +48,13 @@
 							title: {
 								display: true,
 								text: yAxisLabel,
-								color: '#e1e1e3'
+								color: chartColors.text
 							},
 							grid: {
-								color: 'rgba(255, 255, 255, 0.1)'
+								color: chartColors.grid
 							},
 							ticks: {
-								color: '#e1e1e3',
+								color: chartColors.text,
 								autoSkip: true
 							},
 							suggestedMin: autoScale ? undefined : 0,
@@ -59,10 +62,10 @@
 						},
 						x: {
 							grid: {
-								color: 'rgba(255, 255, 255, 0.1)'
+								color: chartColors.grid
 							},
 							ticks: {
-								color: '#e1e1e3',
+								color: chartColors.text,
 								callback: function (_value: unknown, index: number) {
 									if (timestamps_padded[index] === 0) return '';
 									return (timestamps_padded[index] - Date.now() / 1000).toFixed(0) + 's';
@@ -72,7 +75,7 @@
 					},
 					plugins: {
 						legend: {
-							labels: { color: '#e1e1e3' }
+							labels: { color: chartColors.text }
 						}
 					}
 				}
@@ -102,7 +105,7 @@
 
 				cores_padded.forEach((_core: unknown, i: number) => {
 					const color = `hsl(${(i * 360) / cores_padded.length + 200}, 70%, 60%)`;
-					chartData.datasets.push(getDataset(`Core ${i + 1}`, color, '#222', false));
+					chartData.datasets.push(getDataset(`Core ${i + 1}`, color, 'transparent', false));
 				});
 
 				chart = new chartjs(chartCanvas, chartConfig);
@@ -118,6 +121,12 @@
 				chart.update();
 			}
 		}
+	});
+
+	// Recolor the existing chart when the theme changes
+	$effect(() => {
+		const colors = chartColors;
+		if (chart) applyChartJsColors(chart, colors);
 	});
 </script>
 

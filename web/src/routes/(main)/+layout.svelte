@@ -14,6 +14,7 @@
 	import { wsStatus } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { capabilities, updateCapabilities } from '$lib/utils.svelte';
+	import ThemeToggle from '$lib/ThemeToggle.svelte';
 
 	let errorMsg = $state('');
 	let error = $state(false);
@@ -87,6 +88,7 @@
 						Alerts
 					</span>
 				</a>
+				<ThemeToggle />
 			</nav>
 			{@render children()}
 		{:else if gdata.status === wsStatus.INIT}

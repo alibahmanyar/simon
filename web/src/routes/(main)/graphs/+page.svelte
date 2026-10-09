@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import {
 		createChart,
 		ColorType,
@@ -10,6 +10,7 @@
 	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils.svelte';
 	import { getHistoricalData } from '$lib/api';
 	import type { HistoricalSeries } from '$lib/types';
+	import { getChartColors } from '$lib/theme.svelte';
 	let resolution = $state('minute');
 	let timespan = $state(3600);
 	let showAll = $state(false); // Add state for showing less important charts
@@ -195,24 +196,32 @@
 		return colors[index % colors.length];
 	}
 
+	function chartThemeOptions(colors: ReturnType<typeof getChartColors>) {
+		return {
+			layout: {
+				textColor: colors.textSoft,
+				background: { type: ColorType.Solid, color: colors.background }
+			},
+			grid: {
+				vertLines: { color: colors.gridSolid },
+				horzLines: { color: colors.gridSolid }
+			}
+		};
+	}
+
 	function initCharts() {
 		charts.forEach((chart) => chart.remove());
 		charts = [];
 		areaSeries = [];
+		// Theme changes are applied in place below rather than rebuilding every chart
+		const colors = untrack(getChartColors);
 
 		chartContainers.forEach((container, i) => {
 			if (!container || i >= seriesData.length) return;
 
 			const chartOptions = {
 				autosize: true,
-				layout: {
-					textColor: '#d1d4dc',
-					background: { type: ColorType.Solid, color: '#171721' }
-				},
-				grid: {
-					vertLines: { color: '#2B2B43' },
-					horzLines: { color: '#2B2B43' }
-				},
+				...chartThemeOptions(colors),
 				timeScale: {
 					timeVisible: true,
 					secondsVisible: true
@@ -282,6 +291,11 @@
 	$effect(() => {
 		initCharts();
 	});
+
+	$effect(() => {
+		const options = chartThemeOptions(getChartColors());
+		charts.forEach((chart) => chart.applyOptions(options));
+	});
 </script>
 
 <div class="container">
@@ -350,7 +364,7 @@
 		display: flex;
 		gap: 20px;
 		margin-bottom: 20px;
-		color: #d1d4dc;
+		color: var(--text-soft);
 		align-items: center;
 		flex-wrap: wrap;
 	}
@@ -361,9 +375,9 @@
 		gap: 10px;
 	}
 	select {
-		background: #2a2e39;
-		color: #d1d4dc;
-		border: 1px solid #4a4e59;
+		background: var(--surface);
+		color: var(--text-soft);
+		border: 1px solid var(--surface-border);
 		padding: 6px 12px;
 		border-radius: 4px;
 		font-size: 14px;
@@ -374,7 +388,7 @@
 	}
 
 	h2 {
-		color: #d1d4dc;
+		color: var(--text-soft);
 		margin: 0 0 10px 0;
 		font-size: 18px;
 	}
