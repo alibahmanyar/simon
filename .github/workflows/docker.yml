@@ -12,15 +12,24 @@ on:
       run-id:
         description: 'Release workflow run ID to download artifacts from'
         required: false
+      channel:
+        description: 'Release channel (beta/alpha never get the latest tag)'
+        required: true
+        type: choice
+        options:
+          - stable
+          - beta
+          - alpha
+        default: stable
       tag:
         description: 'Docker image tag (default: latest)'
         required: false
         default: 'latest'
       version:
-        description: 'Semver version (e.g., 1.2.3) - will create both X.Y.Z and X.Y tags'
+        description: 'Semver version (stable: 1.2.3 -> X.Y.Z and X.Y tags; beta/alpha: e.g. 1.3.0-beta.1)'
         required: false
       as-latest:
-        description: 'Also tag as latest'
+        description: 'Also tag as latest (stable channel only)'
         required: false
         type: boolean
         default: true
@@ -33,7 +42,15 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
-    
+
+    env:
+      # Primary Docker Hub account
+      DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/simon
+      # Previous Docker Hub account, kept up to date so existing pulls don't break
+      LEGACY_IMAGE: ${{ secrets.DOCKERHUB_LEGACY_USERNAME }}/simon
+      HAS_LEGACY: ${{ secrets.DOCKERHUB_LEGACY_USERNAME != '' && secrets.DOCKERHUB_LEGACY_USERNAME != secrets.DOCKERHUB_USERNAME }}
+      GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,7 +80,7 @@ jobs:
           workflow: release.yml
           name: simon-binaries
           path: bin-releases/
-          run_id: ${{ github.event.inputs.run-id }}
+          run_id: ${{ inputs.run-id }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List downloaded artifacts
@@ -71,27 +88,62 @@ jobs:
           echo "Downloaded binaries:"
           ls -lh bin-releases/
 
-      - name: Generate semver tags
+      - name: Resolve version tags
         id: semver
-        if: ${{ github.event.inputs.version != '' }}
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+          AS_LATEST: ${{ inputs.as-latest }}
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          VERSION="${VERSION#v}"
+          MAJOR_MINOR=""
+          LATEST="false"
+
+          if [ "$CHANNEL" = "stable" ]; then
+            if [[ "$VERSION" == *-* ]]; then
+              echo "::error::Version '$VERSION' looks like a prerelease; pick the beta or alpha channel instead."
+              exit 1
+            fi
+            [ -n "$VERSION" ] && MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+            LATEST="$AS_LATEST"
+          else
+            if [ -n "$VERSION" ] && [[ "$VERSION" != *-"$CHANNEL"* ]]; then
+              echo "::error::Version for the $CHANNEL channel must carry a -$CHANNEL suffix (e.g. 1.3.0-$CHANNEL.1), got '$VERSION'."
+              exit 1
+            fi
+            [ "$AS_LATEST" = "true" ] && echo "::notice::Ignoring as-latest for the $CHANNEL channel."
+          fi
+
           echo "full=$VERSION" >> $GITHUB_OUTPUT
           echo "major_minor=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/simon
-            ghcr.io/${{ github.repository }}
+            ${{ env.DOCKERHUB_IMAGE }}
+            ${{ env.GHCR_IMAGE }}
+          flavor: |
+            latest=false
           tags: |
-            type=raw,value=latest,enable=${{ github.event.inputs.as-latest == 'true' }}
-            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.version == '' && github.event.inputs.tag != 'latest' && github.event.inputs.tag != '' }}
-            type=raw,value=${{ steps.semver.outputs.full }},enable=${{ github.event.inputs.version != '' }}
-            type=raw,value=${{ steps.semver.outputs.major_minor }},enable=${{ github.event.inputs.version != '' }}
+            type=raw,value=latest,enable=${{ steps.semver.outputs.latest == 'true' }}
+            type=raw,value=${{ inputs.channel }},enable=${{ inputs.channel != 'stable' }}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.version == '' && inputs.tag != 'latest' && inputs.tag != '' }}
+            type=raw,value=${{ steps.semver.outputs.full }},enable=${{ steps.semver.outputs.full != '' }}
+            type=raw,value=${{ steps.semver.outputs.major_minor }},enable=${{ steps.semver.outputs.major_minor != '' }}
+
+      - name: Check tags
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          if [ -z "$TAGS" ]; then
+            echo "::error::No tags to publish. Set a version, a custom tag, or enable as-latest."
+            exit 1
+          fi
+          echo "Publishing tags:"
+          echo "$TAGS"
 
       - name: Build and push Docker images
         id: push
@@ -108,25 +160,70 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      # Attest Docker Hub before switching the docker.io login to the legacy account
       - name: Generate artifact attestation for Docker Hub
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: index.docker.io/${{ secrets.DOCKERHUB_USERNAME }}/simon
+          subject-name: index.docker.io/${{ env.DOCKERHUB_IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
       - name: Generate artifact attestation for GHCR
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}
+          subject-name: ${{ env.GHCR_IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
       - name: Docker Scout (optional)
-        if: ${{ github.event.inputs.scout == true }}
+        if: ${{ inputs.scout }}
         uses: docker/scout-action@v1
         continue-on-error: true
         with:
           command: cves
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/simon:${{ github.event.inputs.tag || 'latest' }}
+          image: ${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.version }}
+          dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
           exit-code: false
+
+      - name: Legacy Docker Hub account not configured
+        if: ${{ env.HAS_LEGACY != 'true' }}
+        run: echo "::warning::DOCKERHUB_LEGACY_USERNAME is not set (or matches DOCKERHUB_USERNAME); skipping legacy mirror."
+
+      # docker.io holds one credential at a time, so the legacy account is
+      # logged in last and the already-built image is copied over from GHCR.
+      - name: Log in to legacy Docker Hub account
+        if: ${{ env.HAS_LEGACY == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_LEGACY_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_LEGACY_TOKEN }}
+
+      - name: Mirror image to legacy Docker Hub account
+        id: legacy
+        if: ${{ env.HAS_LEGACY == 'true' }}
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          SOURCE: ${{ env.GHCR_IMAGE }}@${{ steps.push.outputs.digest }}
+        run: |
+          args=()
+          first=""
+          while IFS= read -r tag; do
+            [[ "$tag" == "$DOCKERHUB_IMAGE:"* ]] || continue
+            name="${tag#"$DOCKERHUB_IMAGE:"}"
+            [ -z "$first" ] && first="$name"
+            args+=(-t "$LEGACY_IMAGE:$name")
+          done <<< "$TAGS"
+
+          docker buildx imagetools create "${args[@]}" "$SOURCE"
+
+          digest=$(docker buildx imagetools inspect "$LEGACY_IMAGE:$first" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >> $GITHUB_OUTPUT
+
+      - name: Generate artifact attestation for legacy Docker Hub account
+        if: ${{ env.HAS_LEGACY == 'true' }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: index.docker.io/${{ env.LEGACY_IMAGE }}
+          subject-digest: ${{ steps.legacy.outputs.digest }}
+          push-to-registry: true
