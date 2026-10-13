@@ -14,7 +14,7 @@
 	import { wsStatus } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { capabilities, updateCapabilities } from '$lib/utils.svelte';
-	import ThemeToggle from '$lib/ThemeToggle.svelte';
+	import TopBar from '$lib/TopBar.svelte';
 
 	let errorMsg = $state('');
 	let error = $state(false);
@@ -41,55 +41,55 @@
 	});
 </script>
 
-<h1>Simon</h1>
+<TopBar>
+	{#snippet tabs()}
+		{#if !error && gdata.status === wsStatus.CONNECTED}
+			<a class="tab" class:active={page.url.pathname.endsWith('/')} href="./">Overview</a>
+			{#if capabilities?.disk}
+				<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage"
+					>Storage</a
+				>
+			{/if}
+			{#if capabilities?.network}
+				<a class="tab" class:active={page.url.pathname.endsWith('/network')} href="network"
+					>Network</a
+				>
+			{/if}
+			<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
+			{#if capabilities?.docker}
+				<a class="tab" class:active={page.url.pathname.endsWith('/docker')} href="docker">Docker</a>
+			{/if}
+			<a class="tab" class:active={page.url.pathname.endsWith('/graphs')} href="graphs"
+				>Historical Charts</a
+			>
+			{#if capabilities?.file_serving}
+				<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
+			{/if}
+		{/if}
+	{/snippet}
+	{#snippet actions()}
+		<a class="icon-btn" href="notif_methods" title="Alerts and notification settings">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+				<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+			</svg>
+			<span class="icon-btn-label">Alerts</span>
+		</a>
+	{/snippet}
+</TopBar>
 <div class="dashboard">
 	{#if !error}
 		{#if gdata.status === wsStatus.CONNECTED}
-			<nav class="tabs">
-				<a class="tab" class:active={page.url.pathname.endsWith('/')} href="./">Overview</a>
-				{#if capabilities?.disk}
-					<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage"
-						>Storage</a
-					>
-				{/if}
-				{#if capabilities?.network}
-					<a class="tab" class:active={page.url.pathname.endsWith('/network')} href="network"
-						>Network</a
-					>
-				{/if}
-				<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
-				{#if capabilities?.docker}
-					<a class="tab" class:active={page.url.pathname.endsWith('/docker')} href="docker"
-						>Docker</a
-					>
-				{/if}
-				<a class="tab" class:active={page.url.pathname.endsWith('/graphs')} href="graphs"
-					>Historical Charts</a
-				>
-				{#if capabilities?.file_serving}
-					<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
-				{/if}
-				<a class="tab home-button tab-end" href="notif_methods" aria-label="Settings">
-					<span style="display: flex; align-items: center; gap:5px;">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-							<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-						</svg>
-						Alerts
-					</span>
-				</a>
-				<ThemeToggle />
-			</nav>
 			{@render children()}
 		{:else if gdata.status === wsStatus.INIT}
 			<div class="loading">

@@ -4,13 +4,13 @@
 	let label = $derived(theme.current === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
 </script>
 
-<button class="tab theme-toggle" onclick={toggleTheme} aria-label={label} title={label}>
+<button class="icon-btn" onclick={toggleTheme} aria-label={label} title={label}>
 	{#if theme.current === 'dark'}
 		<!-- Sun -->
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
-			width="16"
-			height="16"
+			width="18"
+			height="18"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -27,8 +27,8 @@
 		<!-- Moon -->
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
-			width="16"
-			height="16"
+			width="18"
+			height="18"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
