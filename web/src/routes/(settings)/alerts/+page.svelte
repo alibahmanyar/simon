@@ -132,6 +132,42 @@
 		}
 	}
 
+	function alertSubject(alert: Alert) {
+		const name = types2names[alert.var.var];
+		return alert.var.cat !== 'sys' ? `${name} (${alert.var.resrc})` : name;
+	}
+
+	function alertCondition(alert: Alert) {
+		const unit = var2unit[alert.var.var];
+		let value;
+		if (unit === 'B/s') value = formatBytesPerSecond(alert.threshold);
+		else if (unit === 'B') value = formatBytes(alert.threshold);
+		else value = `${alert.threshold}${unit}`;
+		return `${alert.operator === '<' ? 'below' : 'above'} ${value}`;
+	}
+
+	function formatMinutes(minutes: number) {
+		if (minutes < 60) return `${minutes} min`;
+		const h = Math.floor(minutes / 60);
+		const m = minutes % 60;
+		return m ? `${h} h ${m} min` : `${h} h`;
+	}
+
+	function methodNames(alert: Alert) {
+		return alert.notif_methods
+			.map((id) => notifMethods.find((m) => m.id === id)?.name)
+			.filter((name) => name !== undefined);
+	}
+
+	let pendingDelete: Alert | null = $state(null);
+
+	async function confirmDelete() {
+		if (!pendingDelete) return;
+		const id = pendingDelete.id;
+		pendingDelete = null;
+		await deleteAlertHandler(id);
+	}
+
 	async function deleteAlertHandler(id: string) {
 		is_loading = true;
 		const result = await deleteAlertApi(id);
@@ -144,6 +180,12 @@
 		}
 	}
 </script>
+
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape' && pendingDelete) pendingDelete = null;
+	}}
+/>
 
 {#if is_loading}
 	<div class="loading">
@@ -159,28 +201,31 @@
 				</div>
 			{:else}
 				{#each alerts as alert (alert.id)}
-					<div class="source-item" transition:fly={{ y: 20, duration: 300 }}>
+					{@const firing = alert.enabled && alert.firing}
+					{@const methods = methodNames(alert)}
+					<div class="source-item" class:firing transition:fly={{ y: 20, duration: 300 }}>
 						<div class="source-info">
-							<h3>
-								<span style="padding-right: 0.6rem;">
-									{types2names[alert.var.var]}
-									{#if alert.var.cat !== 'sys'}
-										({alert.var.resrc})
+							<h3 class="alert-title">
+								{alertSubject(alert)}
+								<span class="alert-condition">{alertCondition(alert)}</span>
+							</h3>
+							<div class="alert-meta">
+								{#if firing}
+									<span class="status-badge firing">Firing</span>
+								{:else}
+									<span class="status-badge" class:enabled={alert.enabled}>
+										{alert.enabled ? 'Active' : 'Inactive'}
+									</span>
+								{/if}
+								<span>
+									for {formatMinutes(alert.time_window)} ·
+									{#if methods.length > 0}
+										via {methods.join(', ')}
+									{:else}
+										<span class="alert-warning">No notification method</span>
 									{/if}
 								</span>
-								<span style="padding: 0.6rem;">{alert.operator}</span>
-
-								{#if var2unit[alert.var.var] === 'B/s'}
-									<span style="padding: 0.6rem;">{formatBytesPerSecond(alert.threshold)}</span>
-								{:else if var2unit[alert.var.var] === 'B'}
-									<span style="padding: 0.6rem;">{formatBytes(alert.threshold)}</span>
-								{:else}
-									<span style="padding: 0.6rem;">{alert.threshold}{var2unit[alert.var.var]}</span>
-								{/if}
-							</h3>
-							<span class="status-badge" class:enabled={alert.enabled}>
-								{alert.enabled ? 'Active' : 'Inactive'}
-							</span>
+							</div>
 						</div>
 						<div class="source-actions">
 							<button
@@ -200,7 +245,7 @@
 							<button
 								class="action-btn delete"
 								onclick={() => {
-									deleteAlertHandler(alert.id);
+									pendingDelete = alert;
 								}}
 							>
 								Delete
@@ -239,7 +284,7 @@
 			<div class="dialog-backdrop" transition:fade={{ duration: 150 }}>
 				<div class="dialog">
 					{#if notifMethods.length > 0}
-						<h2 style="margin-bottom:1rem;">Add Alert</h2>
+						<h2 style="margin-bottom:1rem;">{is_new ? 'Add' : 'Edit'} Alert</h2>
 
 						<form
 							onsubmit={(e) => {
@@ -248,7 +293,7 @@
 							}}
 						>
 							<div class="form-group">
-								<label for="notifs">notification method</label>
+								<label for="notifs">Notification method</label>
 								<select id="notifs" bind:value={selectedNotifMethod} required>
 									{#each notifMethods as method (method.id)}
 										<option value={method.id}>{method.name}</option>
@@ -257,10 +302,10 @@
 							</div>
 
 							<div class="form-group">
-								<label for="name">Time window (minutes) </label>
+								<label for="time_window">Time window (minutes)</label>
 								<input
 									type="number"
-									id="name"
+									id="time_window"
 									min="1"
 									bind:value={alertForm.time_window}
 									required
@@ -278,8 +323,8 @@
 
 							{#if selectedCategory != 'sys'}
 								<div class="form-group">
-									<label for="category">Resource Name</label>
-									<select id="category" bind:value={selectedResource} required>
+									<label for="resource">Resource Name</label>
+									<select id="resource" bind:value={selectedResource} required>
 										{#each Array.from(new Set(alertVars
 													.filter((v) => v.cat === selectedCategory)
 													.map((v) => v.resrc))) as resrc (resrc)}
@@ -289,8 +334,8 @@
 								</div>
 
 								<div class="form-group">
-									<label for="category">Property</label>
-									<select id="category" bind:value={selectedProperty} required>
+									<label for="property">Property</label>
+									<select id="property" bind:value={selectedProperty} required>
 										{#each Array.from(alertVars
 												.filter((v) => v.cat === selectedCategory)
 												.filter((v) => v.resrc === selectedResource)) as alertVar (alertVar.var)}
@@ -302,8 +347,8 @@
 								</div>
 							{:else}
 								<div class="form-group">
-									<label for="category">Property</label>
-									<select id="category" bind:value={selectedProperty} required>
+									<label for="property">Property</label>
+									<select id="property" bind:value={selectedProperty} required>
 										{#each Array.from(alertVars.filter((v) => v.cat === selectedCategory)) as alertVar (alertVar.var)}
 											<option value={alertVar.var}
 												>{types2names[alertVar.var]} ({var2unit[alertVar.var]})</option
@@ -365,6 +410,30 @@
 							</div>
 						</div>
 					{/if}
+				</div>
+			</div>
+		{/if}
+
+		{#if pendingDelete}
+			<div class="dialog-backdrop" transition:fade={{ duration: 150 }}>
+				<div
+					class="dialog dialog-sm"
+					role="alertdialog"
+					aria-modal="true"
+					aria-labelledby="delete-title"
+					aria-describedby="delete-desc"
+				>
+					<h2 id="delete-title">Delete alert?</h2>
+					<p id="delete-desc" class="dialog-text">
+						<strong>{alertSubject(pendingDelete)} {alertCondition(pendingDelete)}</strong> will be permanently
+						removed.
+					</p>
+					<div class="dialog-actions dialog-actions-end">
+						<button type="button" class="cancel" onclick={() => (pendingDelete = null)}>
+							Cancel
+						</button>
+						<button type="button" class="danger" onclick={confirmDelete}>Delete</button>
+					</div>
 				</div>
 			</div>
 		{/if}

@@ -78,6 +78,62 @@
 	text-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
 }
 
+.status-badge.firing {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	background-color: rgba(239, 68, 68, 0.15);
+	color: var(--danger);
+}
+
+.status-badge.firing::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	animation: pulse 1.5s infinite;
+}
+
+.source-item.firing {
+	border-color: var(--error-border);
+}
+
+@media (max-width: 600px) {
+	.source-item {
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	.source-actions {
+		width: 100%;
+		justify-content: flex-end;
+	}
+}
+
+.alert-title {
+	font-size: 1.05rem;
+	font-weight: 600;
+}
+
+.alert-condition {
+	font-weight: 400;
+	color: var(--text-muted);
+}
+
+.alert-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 0.5rem;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
+.alert-warning {
+	color: var(--warning);
+}
+
 .source-actions {
 	display: flex;
 	gap: 0.5rem;
@@ -253,6 +309,36 @@ option:focus {
 
 .settings button.cancel:hover {
 	background-color: rgba(var(--fg-rgb), 0.08);
+}
+
+.dialog-sm {
+	max-width: 420px;
+}
+
+.dialog-text {
+	margin-top: 0.75rem;
+	color: var(--text-muted);
+	line-height: 1.5;
+}
+
+.dialog-text strong {
+	color: var(--text);
+	font-weight: 600;
+}
+
+.dialog-actions-end {
+	justify-content: flex-end;
+	gap: 0.5rem;
+}
+
+.settings button.danger {
+	background-color: var(--danger);
+	color: white;
+	border: none;
+}
+
+.settings button.danger:hover {
+	filter: brightness(1.1);
 }
 
 .settings button.submit {
