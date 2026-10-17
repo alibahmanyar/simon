@@ -3,7 +3,7 @@
 	import { asset } from '$app/paths';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 
-	let { tabs, actions }: { tabs?: Snippet; actions?: Snippet } = $props();
+	let { tabs, actions, banner }: { tabs?: Snippet; actions?: Snippet; banner?: Snippet } = $props();
 </script>
 
 <header class="topbar">
@@ -20,4 +20,5 @@
 			<ThemeToggle />
 		</div>
 	</div>
+	{@render banner?.()}
 </header>

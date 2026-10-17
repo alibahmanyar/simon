@@ -1,72 +1,37 @@
 <script lang="ts">
-	import { formatBytes, formatBytesPerSecond } from '$lib/utils.svelte';
+	import { formatBytes, formatBytesPerSecond, isVirtualInterface } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
-	import type { NetworkInterface, NetworkStats } from '$lib/types';
-
-	// Network data tracking
-	let networkInterfaces: { [key: string]: NetworkInterface } = {};
-	let previousNetworkStats: { [key: string]: NetworkStats } = {};
-	let sortedInterfaces: NetworkInterface[] = $state([]);
+	import type { NetworkInterface } from '$lib/types';
+	import Switch from '$lib/Switch.svelte';
 
 	let showAllInterfaces = $state(false);
 
-	// Process network data when it updates
-	$effect(() => {
-		if (gdata.data?.current && gdata.data.current.net && gdata.data.current.net.interfaces) {
-			const currentTime = Date.now();
-			// remove interfaces with 'veth' in name
-			let interfaces = gdata.data.current.net.interfaces;
-			if (!showAllInterfaces)
-				interfaces = interfaces.filter(
-					(iface) =>
-						!iface.name.includes('veth') &&
-						!iface.name.includes('docker') &&
-						!iface.name.includes('br-') &&
-						!iface.name.includes('lo') &&
-						!iface.name.includes('tun') &&
-						!iface.name.includes('wg') &&
-						!iface.name.includes('vnet')
-				);
-			interfaces = interfaces.map((iface) => {
-				const prev = previousNetworkStats[iface.name] || {
-					received: iface.rx,
-					transmitted: iface.tx,
-					time: currentTime - 1000
-				};
+	// Rates come from the previous sample, so they're available on the first render
+	// and toggling the switch doesn't reset them
+	let sortedInterfaces: NetworkInterface[] = $derived.by(() => {
+		const current = gdata.data?.current;
+		if (!current?.net?.interfaces) return [];
 
-				// Calculate bytes per second
-				const timeDiff = Math.max(0.1, (currentTime - prev.time) / 1000);
-				const receiveRate = Math.max(0, (iface.rx - prev.received) / timeDiff);
-				const transmitRate = Math.max(0, (iface.tx - prev.transmitted) / timeDiff);
+		const previous = gdata.data?.prevDataPoints.at(-1);
+		const elapsed =
+			previous?.receivedAt && current.receivedAt
+				? (current.receivedAt - previous.receivedAt) / 1000
+				: 0;
 
-				// Update previous stats
-				previousNetworkStats[iface.name] = {
-					received: iface.rx,
-					transmitted: iface.tx,
-					time: currentTime
-				};
-
-				// Store interface with rates
-				networkInterfaces[iface.name] = {
-					name: iface.name,
-					rx: iface.rx,
-					tx: iface.tx,
-					receiveRate,
-					transmitRate
-				};
-
+		return current.net.interfaces
+			.filter((iface) => showAllInterfaces || !isVirtualInterface(iface.name))
+			.map((iface) => {
+				const before =
+					elapsed > 0 ? previous?.net.interfaces.find((p) => p.name === iface.name) : undefined;
 				return {
 					name: iface.name,
 					rx: iface.rx,
 					tx: iface.tx,
-					receiveRate,
-					transmitRate
+					receiveRate: before ? Math.max(0, (iface.rx - before.rx) / elapsed) : undefined,
+					transmitRate: before ? Math.max(0, (iface.tx - before.tx) / elapsed) : undefined
 				};
-			});
-
-			// Sort interfaces by name
-			sortedInterfaces = [...interfaces].sort((a, b) => a.name.localeCompare(b.name));
-		}
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 	});
 </script>
 
@@ -74,13 +39,7 @@
 	<div class="card">
 		<p class="card-title">Network Interfaces</p>
 		<div class="chart-controls">
-			<label>
-				<span>Show All Interfaces</span>
-				<label class="switch">
-					<input type="checkbox" bind:checked={showAllInterfaces} />
-					<span class="slider"></span>
-				</label>
-			</label>
+			<Switch label="Show All Interfaces" bind:checked={showAllInterfaces} />
 		</div>
 		<div id="network-interfaces">
 			{#if sortedInterfaces.length > 0}
@@ -98,11 +57,19 @@
 							</div>
 							<div class="info-item">
 								<span class="info-label">Receive Rate:</span>
-								<span class="info-value">{formatBytesPerSecond(iface.receiveRate ?? 0)}</span>
+								<span class="info-value"
+									>{iface.receiveRate === undefined
+										? '—'
+										: formatBytesPerSecond(iface.receiveRate)}</span
+								>
 							</div>
 							<div class="info-item">
 								<span class="info-label">Transmit Rate:</span>
-								<span class="info-value">{formatBytesPerSecond(iface.transmitRate ?? 0)}</span>
+								<span class="info-value"
+									>{iface.transmitRate === undefined
+										? '—'
+										: formatBytesPerSecond(iface.transmitRate)}</span
+								>
 							</div>
 						</div>
 					</div>
@@ -132,4 +99,9 @@
 		</div>
 		<div style="min-height: 30vh;"></div>
 	</div> -->
+{:else}
+	<div class="loading">
+		<div class="spinner"></div>
+		<p>Waiting for system info...</p>
+	</div>
 {/if}

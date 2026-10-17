@@ -83,8 +83,8 @@
 
 .filter-input:focus {
 	outline: none;
-	border-color: rgba(74, 222, 128, 0.5);
-	box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .filter-input::placeholder {
@@ -226,7 +226,7 @@
 }
 
 .file-permissions {
-	font-family: 'RobotoMono', monospace;
+	font-family: var(--font-mono);
 	color: var(--text-muted);
 	font-size: 0.85rem;
 	padding: 0.75rem 0;
@@ -234,7 +234,7 @@
 
 .file-size {
 	color: var(--text-muted);
-	font-family: 'RobotoMono', monospace;
+	font-family: var(--font-mono);
 	font-size: 0.85rem;
 	padding: 0.75rem 0;
 }
@@ -534,12 +534,36 @@
 	padding: 0;
 }
 
+/* Says only part of a large file is loaded; sticks to the top while scrolling */
+.preview-notice {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	padding: 0.6rem 1.5rem;
+	font-size: 0.85rem;
+	color: var(--text-soft);
+	background: var(--surface-sunken);
+	border-bottom: 1px solid var(--surface);
+}
+
+.preview-notice span {
+	margin-right: auto;
+}
+
+.preview-notice button {
+	padding: 0.35rem 0.8rem;
+}
+
 .file-viewer-content {
 	margin: 0;
 	padding: 1.5rem;
 	background: var(--code-bg);
 	border-radius: 0 0 8px 8px;
-	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace !important;
+	font-family: var(--font-mono) !important;
 	font-size: 0.9rem;
 	line-height: 1.6;
 	white-space: pre;
@@ -547,7 +571,7 @@
 }
 
 .file-viewer-content * {
-	font-family: 'RobotoMono', 'Courier New', 'Courier', monospace !important;
+	font-family: var(--font-mono) !important;
 	font-size: 0.9rem;
 	line-height: 1.6;
 }
@@ -938,6 +962,7 @@
 .text-input:focus {
 	outline: none;
 	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .text-input:disabled {
@@ -954,7 +979,7 @@
 
 .read-only-field code {
 	color: var(--accent);
-	font-family: 'Courier New', monospace;
+	font-family: var(--font-mono);
 	font-size: 0.9rem;
 }
 
@@ -1071,7 +1096,7 @@
 	border-radius: 4px;
 	font-size: 0.85rem;
 	color: var(--text);
-	font-family: 'Courier New', monospace;
+	font-family: var(--font-mono);
 }
 
 .file-info-path code {

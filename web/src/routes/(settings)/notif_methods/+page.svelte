@@ -7,9 +7,15 @@
 		deleteNotificationMethod as deleteNotificationMethodApi
 	} from '$lib/api';
 	import { onMount } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
+	import { fly, fade } from '$lib/transitions';
+	import { formatHeaders, parseHeaders } from '$lib/utils.svelte';
+	import Modal from '$lib/Modal.svelte';
 
 	let is_loading: boolean = $state(true);
+	let saving = $state(false);
+	// Shown inside the dialog and above the list respectively
+	let formError: string | null = $state(null);
+	let listError: string | null = $state(null);
 	let notificationMethods: NotificationMethod[] = $state([]);
 	let showDialog = $state(false);
 
@@ -172,16 +178,15 @@
 				showBodyTextArea = true;
 				break;
 
-			case 'matrix': {
+			case 'matrix':
 				webhookForm.name = 'Matrix Notification';
-				const txnId = Date.now();
-				webhookForm.config.WebHook.url = `${matrixHomeserver}/_matrix/client/v3/rooms/${encodeURIComponent(matrixRoomId)}/send/m.room.message/${txnId}?access_token=${matrixAccessToken}`;
+				// Matrix drops a send that reuses a transaction ID, so {txn_id} is filled in per send
+				webhookForm.config.WebHook.url = `${matrixHomeserver}/_matrix/client/v3/rooms/${encodeURIComponent(matrixRoomId)}/send/m.room.message/{txn_id}?access_token=${matrixAccessToken}`;
 				webhookForm.config.WebHook.method = 'PUT';
 				webhookForm.config.WebHook.body = '{"msgtype": "m.text", "body": "{notif_msg}"}';
 				headersString = 'Content-Type: application/json';
 				showBodyTextArea = true;
 				break;
-			}
 			case 'custom':
 			default:
 				// Keep existing form values for custom
@@ -217,60 +222,75 @@
 		if (result.success) {
 			notificationMethods = result.data;
 		} else {
-			console.error('Failed to fetch notification methods:', result.error);
+			listError = `Couldn't load notification methods: ${result.error}`;
 		}
 	});
 
-	function toggleDialog() {
-		showDialog = !showDialog;
-		if (showDialog) {
-			if (is_new) {
-				// Reset form when opening
-				webhookForm = {
-					id: '-1',
-					name: '',
-					kind: 'webhook',
-					config: {
-						WebHook: {
-							url: '',
-							method: 'POST',
-							headers: {},
-							body: ''
-						}
-					},
-					enabled: true
-				};
-				resetTemplateFields();
-				selectedTemplate = 'custom';
-				showTemplateSelection = true;
-			} else {
-				showTemplateSelection = false;
-			}
-		}
+	function resetDialogState() {
+		formError = null;
+		testResultMessage = '';
+		testResultStatus = 'idle';
+	}
+
+	function openNewDialog() {
+		is_new = true;
+		// Reset form when opening
+		webhookForm = {
+			id: '-1',
+			name: '',
+			kind: 'webhook',
+			config: {
+				WebHook: {
+					url: '',
+					method: 'POST',
+					headers: {},
+					body: ''
+				}
+			},
+			enabled: true
+		};
+		headersString = '';
+		showBodyTextArea = true;
+		resetTemplateFields();
+		resetDialogState();
+		selectedTemplate = 'custom';
+		showTemplateSelection = true;
+		showDialog = true;
+	}
+
+	function openEditDialog(method: NotificationMethod) {
+		is_new = false;
+		// A deep copy, so a cancelled or failed edit doesn't leak into the list
+		webhookForm = $state.snapshot(method);
+		// Load the saved headers, otherwise saving would replace them with an empty list
+		headersString = formatHeaders(method.config.WebHook.headers);
+		showBodyTextArea = ['POST', 'PUT', 'PATCH'].includes(method.config.WebHook.method);
+		resetDialogState();
+		showTemplateSelection = false;
+		showDialog = true;
+	}
+
+	function closeDialog() {
+		showDialog = false;
+		formError = null;
 	}
 
 	async function addNotificationMethod() {
-		webhookForm.config.WebHook.headers = headersString
-			.split('\n')
-			.reduce((res: Record<string, string>, line) => {
-				let [key, value] = line.split(':').map((part) => part.trim());
-				if (key && value) res[key] = value;
-				return res;
-			}, {});
+		webhookForm.config.WebHook.headers = parseHeaders(headersString);
 
 		// Create a new notification source with WebHook config
 		const newMethod = webhookForm;
 
-		is_loading = true;
+		saving = true;
+		formError = null;
 		const result = await saveNotificationMethod(newMethod);
-		is_loading = false;
+		saving = false;
 
 		if (result.success) {
 			notificationMethods = result.data;
-			toggleDialog();
+			closeDialog();
 		} else {
-			console.error('Error adding notification method:', result.error);
-			alert(`Failed to add notification method: ${result.error}`);
+			formError = `Couldn't save the notification method: ${result.error}`;
 		}
 	}
 
@@ -287,15 +307,10 @@
 		testResultMessage = 'Sending test notification...';
 		testResultStatus = 'loading';
 
-		let url = webhookForm.config.WebHook.url.replaceAll(
-			'{notif_msg}',
-			'This is a test notification'
-		);
-		let headers = headersString.split('\n').reduce((res: Record<string, string>, line) => {
-			let [key, value] = line.split(':').map((part) => part.trim());
-			if (key && value) res[key] = value;
-			return res;
-		}, {});
+		let url = webhookForm.config.WebHook.url
+			.replaceAll('{notif_msg}', 'This is a test notification')
+			.replaceAll('{txn_id}', `simon-test-${Date.now()}`);
+		let headers = parseHeaders(headersString);
 		const options: {
 			method: string;
 			headers: Record<string, string>;
@@ -332,15 +347,13 @@
 	}
 
 	async function deleteNotificationMethod(id: string) {
-		is_loading = true;
+		listError = null;
 		const result = await deleteNotificationMethodApi(id);
-		is_loading = false;
 
 		if (result.success) {
 			notificationMethods = result.data;
 		} else {
-			console.error('Error deleting notification method:', result.error);
-			alert(`Failed to delete notification method: ${result.error}`);
+			listError = `Couldn't delete the notification method: ${result.error}`;
 		}
 	}
 </script>
@@ -351,6 +364,12 @@
 	</div>
 {:else}
 	<div class="dashboard settings" transition:fade>
+		{#if listError}
+			<div class="error-container" role="alert">
+				<p>{listError}</p>
+			</div>
+		{/if}
+
 		<div class="source-list">
 			{#if notificationMethods.length === 0}
 				<div class="empty-state">
@@ -366,14 +385,7 @@
 							<span class="method-badge">{method.config.WebHook.method}</span>
 						</div>
 						<div class="source-actions">
-							<button
-								class="action-btn toggle"
-								onclick={() => {
-									webhookForm = { ...method };
-									is_new = false;
-									toggleDialog();
-								}}
-							>
+							<button class="action-btn toggle" onclick={() => openEditDialog(method)}>
 								Edit
 							</button>
 							<button
@@ -390,14 +402,7 @@
 			{/if}
 		</div>
 
-		<button
-			class="add-button"
-			onclick={() => {
-				is_new = true;
-				toggleDialog();
-			}}
-			aria-label="Add Notification Method"
-		>
+		<button class="add-button" onclick={openNewDialog} aria-label="Add Notification Method">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="24"
@@ -415,10 +420,15 @@
 		</button>
 
 		{#if showDialog}
-			<div class="dialog-backdrop" transition:fade={{ duration: 150 }}>
+			<Modal
+				class="dialog-backdrop"
+				aria-labelledby="notif-dialog-title"
+				dismissible={!saving}
+				onclose={closeDialog}
+			>
 				<div class="dialog" style="max-width: 600px;">
 					{#if showTemplateSelection}
-						<h2>Choose a Template</h2>
+						<h2 id="notif-dialog-title">Choose a Template</h2>
 						<p class="hint" style="margin-top:0.5rem; margin-bottom: 1.5rem;">
 							Select a service to configure notifications quickly
 						</p>
@@ -440,8 +450,13 @@
 						</div>
 
 						{#if selectedTemplate !== 'custom'}
-							<div
+							<!-- A form, so the browser enforces the required fields before applying -->
+							<form
 								style="margin-top: 1.5rem; padding: 1rem; background: var(--inset-bg); border-radius: 8px;"
+								onsubmit={(e) => {
+									e.preventDefault();
+									applyTemplate();
+								}}
 							>
 								<h3 style="margin-bottom: 1rem;">
 									{templates.find((t) => t.id === selectedTemplate)?.name} Configuration
@@ -614,18 +629,15 @@
 								{/if}
 
 								<div style="display: flex; justify-content: end; gap: 0.5rem; margin-top: 1rem;">
-									<button type="button" class="action-btn cancel" onclick={toggleDialog}
+									<button type="button" class="action-btn cancel" onclick={closeDialog}
 										>Cancel</button
 									>
-									<button type="button" class="action-btn submit" onclick={applyTemplate}
-										>Apply Template</button
-									>
+									<button type="submit" class="action-btn submit">Apply Template</button>
 								</div>
-							</div>
+							</form>
 						{:else}
 							<div style="display: flex; justify-content: end; gap: 0.5rem; margin-top: 1.5rem;">
-								<button type="button" class="action-btn cancel" onclick={toggleDialog}
-									>Cancel</button
+								<button type="button" class="action-btn cancel" onclick={closeDialog}>Cancel</button
 								>
 								<button type="button" class="action-btn submit" onclick={applyTemplate}
 									>Continue</button
@@ -633,7 +645,7 @@
 							</div>
 						{/if}
 					{:else}
-						<h2>{is_new ? 'Add' : 'Edit'} Notification Method</h2>
+						<h2 id="notif-dialog-title">{is_new ? 'Add' : 'Edit'} Notification Method</h2>
 						<p style="margin-top:1rem">Use &lcub;notif_msg&rcub; to insert notification message</p>
 						<p></p>
 						<p class="hint">Example message: "CPU Usage exceeded 70% for the last 10 minutes"</p>
@@ -698,6 +710,10 @@
 								</div>
 							{/if}
 
+							{#if formError}
+								<p class="form-error" role="alert">{formError}</p>
+							{/if}
+
 							<div class="dialog-actions">
 								<div
 									style="display: flex; align-items: center; flex-direction: row; gap: 1rem; max-width:45%;"
@@ -738,17 +754,22 @@
 											onclick={() => (showTemplateSelection = true)}>Back</button
 										>
 									{/if}
-									<button type="button" class="action-btn cancel" onclick={toggleDialog}
-										>Cancel</button
+									<button
+										type="button"
+										class="action-btn cancel"
+										onclick={closeDialog}
+										disabled={saving}>Cancel</button
 									>
 
-									<button type="submit" class="action-btn submit">Save</button>
+									<button type="submit" class="action-btn submit" disabled={saving}>
+										{saving ? 'Saving...' : 'Save'}
+									</button>
 								</div>
 							</div>
 						</form>
 					{/if}
 				</div>
-			</div>
+			</Modal>
 		{/if}
 	</div>
 {/if}

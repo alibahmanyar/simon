@@ -15,10 +15,16 @@
 		deleteAlert as deleteAlertApi
 	} from '$lib/api';
 	import { onMount } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
+	import { fly, fade } from '$lib/transitions';
+	import Modal from '$lib/Modal.svelte';
+	import Switch from '$lib/Switch.svelte';
 	import type { Alert, AlertVar, NotificationMethod } from '$lib/types';
 
 	let is_loading: boolean = $state(true);
+	let saving = $state(false);
+	// Shown inside the dialog and above the list respectively
+	let formError: string | null = $state(null);
+	let listError: string | null = $state(null);
 
 	let showDialog = $state(false);
 	let is_new = $state(true);
@@ -60,58 +66,77 @@
 				getNotificationMethods()
 			]);
 
+			const errors: string[] = [];
+
 			// Handle alerts
 			if (alertsResult.success) {
 				alerts = alertsResult.data;
 			} else {
-				console.error('Failed to fetch alerts:', alertsResult.error);
+				errors.push(`Couldn't load alerts: ${alertsResult.error}`);
 			}
 
 			// Handle alert vars
 			if (alertVarsResult.success) {
 				alertVars = alertVarsResult.data;
 			} else {
-				console.error('Failed to fetch alert vars:', alertVarsResult.error);
+				errors.push(`Couldn't load alert variables: ${alertVarsResult.error}`);
 			}
 
 			// Handle notification methods
 			if (notifMethodsResult.success) {
 				notifMethods = notifMethodsResult.data;
 			} else {
-				console.error('Failed to fetch notification methods:', notifMethodsResult.error);
+				errors.push(`Couldn't load notification methods: ${notifMethodsResult.error}`);
 			}
+
+			listError = errors.length > 0 ? errors.join(' ') : null;
 		} catch (error) {
 			console.error('Error fetching data:', error);
+			listError = "Couldn't load alerts.";
 		} finally {
 			is_loading = false;
 		}
 	});
 
-	function toggleDialog() {
-		showDialog = !showDialog;
-		if (showDialog) {
-			if (is_new) {
-				// Reset form when opening
-				alertForm = {
-					id: '-1',
-					var: {
-						cat: '',
-						var: '',
-						resrc: ''
-					},
-					threshold: 0,
-					operator: '',
-					time_window: 1,
-					enabled: true,
-					firing: false,
-					notif_methods: []
-				};
-				selectedCategory = '';
-				selectedResource = '';
-				selectedProperty = '';
-				selectedNotifMethod = '';
-			}
-		}
+	function openNewDialog() {
+		is_new = true;
+		alertForm = {
+			id: '-1',
+			var: {
+				cat: '',
+				var: '',
+				resrc: ''
+			},
+			threshold: 0,
+			operator: '',
+			time_window: 1,
+			enabled: true,
+			firing: false,
+			notif_methods: []
+		};
+		selectedCategory = '';
+		selectedResource = '';
+		selectedProperty = '';
+		selectedNotifMethod = '';
+		formError = null;
+		showDialog = true;
+	}
+
+	function openEditDialog(alert: Alert) {
+		is_new = false;
+		// A deep copy, so a cancelled or failed edit doesn't leak into the list
+		alertForm = $state.snapshot(alert);
+		selectedCategory = alert.var.cat;
+		selectedResource = alert.var.resrc;
+		selectedProperty = alert.var.var;
+		selectedNotifMethod = alert.notif_methods[0];
+		formError = null;
+		showDialog = true;
+	}
+
+	function closeDialog() {
+		showDialog = false;
+		formError = null;
 	}
 
 	async function addAlert() {
@@ -120,15 +145,16 @@
 		alertForm.var.resrc = selectedResource;
 		alertForm.var.var = selectedProperty;
 
-		is_loading = true;
+		saving = true;
+		formError = null;
 		const result = await saveAlert(alertForm);
-		is_loading = false;
+		saving = false;
 
 		if (result.success) {
 			alerts = result.data;
-			toggleDialog();
+			closeDialog();
 		} else {
-			console.error('Failed to add alert:', result.error);
+			formError = `Couldn't save the alert: ${result.error}`;
 		}
 	}
 
@@ -169,23 +195,16 @@
 	}
 
 	async function deleteAlertHandler(id: string) {
-		is_loading = true;
+		listError = null;
 		const result = await deleteAlertApi(id);
-		is_loading = false;
 
 		if (result.success) {
 			alerts = result.data;
 		} else {
-			console.error('Failed to delete alert:', result.error);
+			listError = `Couldn't delete the alert: ${result.error}`;
 		}
 	}
 </script>
-
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape' && pendingDelete) pendingDelete = null;
-	}}
-/>
 
 {#if is_loading}
 	<div class="loading">
@@ -193,6 +212,12 @@
 	</div>
 {:else}
 	<div class="dashboard settings" transition:fade>
+		{#if listError}
+			<div class="error-container" role="alert">
+				<p>{listError}</p>
+			</div>
+		{/if}
+
 		<div class="source-list">
 			{#if alerts.length === 0}
 				<div class="empty-state">
@@ -225,21 +250,16 @@
 										<span class="alert-warning">No notification method</span>
 									{/if}
 								</span>
+								{#if alert.enabled && alert.delivery_error}
+									<span class="alert-warning">
+										Notification failed{alert.notify_pending ? ', retrying every minute' : ''}:
+										{alert.delivery_error}
+									</span>
+								{/if}
 							</div>
 						</div>
 						<div class="source-actions">
-							<button
-								class="action-btn toggle"
-								onclick={() => {
-									alertForm = { ...alert };
-									selectedCategory = alert.var.cat;
-									selectedResource = alert.var.resrc;
-									selectedProperty = alert.var.var;
-									selectedNotifMethod = alert.notif_methods[0];
-									is_new = false;
-									toggleDialog();
-								}}
-							>
+							<button class="action-btn toggle" onclick={() => openEditDialog(alert)}>
 								Edit
 							</button>
 							<button
@@ -256,14 +276,7 @@
 			{/if}
 		</div>
 
-		<button
-			class="add-button"
-			onclick={() => {
-				is_new = true;
-				toggleDialog();
-			}}
-			aria-label="Add Alert"
-		>
+		<button class="add-button" onclick={openNewDialog} aria-label="Add Alert">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="24"
@@ -281,11 +294,17 @@
 		</button>
 
 		{#if showDialog}
-			<div class="dialog-backdrop" transition:fade={{ duration: 150 }}>
+			<Modal
+				class="dialog-backdrop"
+				aria-labelledby="alert-dialog-title"
+				dismissible={!saving}
+				onclose={closeDialog}
+			>
 				<div class="dialog">
+					<h2 id="alert-dialog-title" style="margin-bottom:1rem;">
+						{is_new ? 'Add' : 'Edit'} Alert
+					</h2>
 					{#if notifMethods.length > 0}
-						<h2 style="margin-bottom:1rem;">{is_new ? 'Add' : 'Edit'} Alert</h2>
-
 						<form
 							onsubmit={(e) => {
 								e.preventDefault();
@@ -382,21 +401,23 @@
 								/>
 							</div>
 
-							<label class="switch-label">
-								<span>Active:</span>
-								<label class="switch">
-									<input type="checkbox" id="alertEnabled" bind:checked={alertForm.enabled} />
-									<span class="slider"></span>
-								</label>
-							</label>
+							<Switch label="Active" bind:checked={alertForm.enabled} />
+
+							{#if formError}
+								<p class="form-error" role="alert">{formError}</p>
+							{/if}
 
 							<div class="dialog-actions">
 								<div
 									style="width: 100%; display: flex; justify-content: end; align-items: center; flex-direction: row; gap:0.5rem;"
 								>
-									<button type="button" class="cancel" onclick={toggleDialog}>Cancel</button>
+									<button type="button" class="cancel" onclick={closeDialog} disabled={saving}
+										>Cancel</button
+									>
 
-									<button type="submit" class="submit">Save</button>
+									<button type="submit" class="submit" disabled={saving}>
+										{saving ? 'Saving...' : 'Save'}
+									</button>
 								</div>
 							</div>
 						</form>
@@ -406,36 +427,38 @@
 							<div
 								style="width: 100%; display: flex; justify-content: end; align-items: center; flex-direction: row; gap:0.5rem;"
 							>
-								<button type="button" class="cancel" onclick={toggleDialog}>OK</button>
+								<button type="button" class="cancel" onclick={closeDialog}>OK</button>
 							</div>
 						</div>
 					{/if}
 				</div>
-			</div>
+			</Modal>
 		{/if}
 
 		{#if pendingDelete}
-			<div class="dialog-backdrop" transition:fade={{ duration: 150 }}>
-				<div
-					class="dialog dialog-sm"
-					role="alertdialog"
-					aria-modal="true"
-					aria-labelledby="delete-title"
-					aria-describedby="delete-desc"
-				>
+			<Modal
+				class="dialog-backdrop"
+				role="alertdialog"
+				aria-labelledby="delete-title"
+				aria-describedby="delete-desc"
+				onclose={() => (pendingDelete = null)}
+			>
+				<div class="dialog dialog-sm">
 					<h2 id="delete-title">Delete alert?</h2>
 					<p id="delete-desc" class="dialog-text">
 						<strong>{alertSubject(pendingDelete)} {alertCondition(pendingDelete)}</strong> will be permanently
 						removed.
 					</p>
 					<div class="dialog-actions dialog-actions-end">
-						<button type="button" class="cancel" onclick={() => (pendingDelete = null)}>
+						<!-- Start on the safe choice -->
+						<!-- svelte-ignore a11y_autofocus -->
+						<button type="button" class="cancel" onclick={() => (pendingDelete = null)} autofocus>
 							Cancel
 						</button>
 						<button type="button" class="danger" onclick={confirmDelete}>Delete</button>
 					</div>
 				</div>
-			</div>
+			</Modal>
 		{/if}
 	</div>
 {/if}

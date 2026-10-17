@@ -223,14 +223,15 @@
 	margin-bottom: 1.25rem;
 }
 
-.settings label {
+/* Switches (lib/Switch.svelte) bring their own layout */
+.settings label:not(.switch-row) {
 	display: block;
 	margin-bottom: 0.5rem;
 	font-weight: 500;
 	color: rgba(var(--fg-rgb), 0.8);
 }
 
-.settings input,
+.settings input:not([type='checkbox']),
 .settings select,
 .settings textarea {
 	width: 100%;
@@ -245,14 +246,14 @@
 	outline: none;
 }
 
-.settings input:focus,
+.settings input:not([type='checkbox']):focus,
 .settings select:focus,
 .settings textarea:focus {
-	border-color: rgba(74, 222, 128, 0.5);
-	box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
-.settings input:hover,
+.settings input:not([type='checkbox']):hover,
 .settings select:hover,
 .settings textarea:hover {
 	background-color: rgba(var(--fg-rgb), 0.08);
@@ -260,13 +261,13 @@
 
 .settings textarea {
 	min-height: 15vh;
-	font-family: monospace;
+	font-family: var(--font-mono);
 	resize: vertical;
 }
 
 .settings select {
 	appearance: none;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e1e1e3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+	background-image: var(--select-arrow);
 	background-repeat: no-repeat;
 	background-position: right 10px center;
 	background-size: 16px;
@@ -291,6 +292,16 @@ option:focus {
 	justify-content: space-between;
 	gap: 1rem;
 	margin-top: 1.5rem;
+}
+
+.form-error {
+	margin-top: 1rem;
+	padding: 0.6rem 0.8rem;
+	border-radius: 8px;
+	color: var(--error-text);
+	background: var(--error-bg);
+	border: 1px solid var(--error-border);
+	font-size: 0.9rem;
 }
 
 .dialog-actions button {

@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { onMount, tick } from 'svelte';
+	import { fade } from '$lib/transitions';
 	import {
 		getServeDirs,
 		browseDirectory,
 		getFileContent,
+		getFileTail,
 		uploadFiles,
 		moveFile,
 		deleteFile,
 		createFolder
 	} from '$lib/api';
+	import Modal from '$lib/Modal.svelte';
 	import type { FileEntry } from '$lib/types';
 	import '$lib/style-files.css';
 	import {
@@ -21,7 +23,7 @@
 		imageExtensions,
 		documentExtensions
 	} from '$lib/fileExtensions';
-	import { formatBytes, url } from '$lib/utils.svelte';
+	import { capabilities, formatBytes, url } from '$lib/utils.svelte';
 	import { highlightElement, type ShjLanguage } from '@speed-highlight/core';
 	import '@speed-highlight/core/themes/atom-dark.css';
 
@@ -51,7 +53,12 @@
 	// Constants
 	const MAX_TEXT_FILE_SIZE = 102400; // 100KB
 	const COPY_SUCCESS_DURATION = 2000;
-	const HIGHLIGHT_DELAY = 10;
+	// Text files past this size (mostly logs) only load their end, more on request
+	const MAX_WHOLE_FILE_BYTES = 1024 * 1024;
+	const TAIL_BYTES = 256 * 1024;
+	const MAX_PREVIEW_BYTES = 4 * 1024 * 1024;
+	// Highlighting builds a node per token; past this it stalls the page
+	const MAX_HIGHLIGHT_LENGTH = 512 * 1024;
 
 	// Loading and directory state
 	let is_loading = $state(true);
@@ -67,9 +74,22 @@
 	let fileContent = $state('');
 	let viewingFileName = $state('');
 	let viewingFilePath = $state('');
+	let viewingFileSize = $state(0);
+	// Byte range of the file that is shown; less than the whole file for large files
+	let previewStart = $state(0);
+	let previewLength = $state(0);
+	// Bytes asked for from the end of the file; previewLength is a bit less after the
+	// partial first line is dropped
+	let tailRequest = $state(0);
+	let isPartialPreview = $derived(previewLength < viewingFileSize);
 	let isLoadingFile = $state(false);
+	let isLoadingMore = $state(false);
 	let fileError = $state<string | null>(null);
 	let copySuccess = $state(false);
+	// Bumped to re-create the content element, since highlighting replaces its children
+	let contentVersion = $state(0);
+	let contentElement = $state<HTMLDivElement | null>(null);
+	let viewerBody = $state<HTMLDivElement | null>(null);
 
 	// Upload state
 	let showUploadModal = $state(false);
@@ -135,6 +155,11 @@
 	});
 
 	onMount(async () => {
+		if (!capabilities.file_serving) {
+			is_loading = false;
+			return;
+		}
+
 		const result = await getServeDirs();
 		is_loading = false;
 
@@ -268,22 +293,75 @@
 		fileError = null;
 		viewingFileName = filename;
 		viewingFilePath = path;
+		viewingFileSize = size;
 
-		const result = await getFileContent(path);
+		// Reading a multi-gigabyte log whole would hang the tab, so large files load their end
+		const isLarge = size > MAX_WHOLE_FILE_BYTES;
+		const error = isLarge ? await loadTail(TAIL_BYTES) : await loadWholeFile();
 		isLoadingFile = false;
 
-		if (result.success) {
-			fileContent = result.data;
-			// Apply syntax highlighting
-			setTimeout(() => {
-				const codeBlock = document.querySelector('.file-viewer-content');
-				if (codeBlock) {
-					const language = getLanguageFromFilename(filename) as ShjLanguage;
-					highlightElement(codeBlock as HTMLElement, language);
-				}
-			}, HIGHLIGHT_DELAY);
-		} else {
-			fileError = result.error;
+		if (error) {
+			fileError = error;
+			return;
+		}
+		await renderFileContent();
+		// The end of a log is what's usually wanted
+		if (isLarge && viewerBody) viewerBody.scrollTop = viewerBody.scrollHeight;
+	}
+
+	async function loadWholeFile(): Promise<string | null> {
+		const result = await getFileContent(viewingFilePath);
+		if (!result.success) return result.error;
+		fileContent = result.data;
+		previewStart = 0;
+		previewLength = viewingFileSize;
+		tailRequest = 0;
+		return null;
+	}
+
+	async function loadTail(length: number): Promise<string | null> {
+		const result = await getFileTail(viewingFilePath, length);
+		if (!result.success) return result.error;
+
+		let { bytes, start } = result.data;
+		if (start > 0) {
+			// Skip the partial first line; a newline byte never occurs inside a UTF-8 sequence
+			const firstLineEnd = bytes.indexOf(0x0a);
+			bytes = bytes.subarray(firstLineEnd + 1);
+			start += firstLineEnd + 1;
+		}
+		fileContent = new TextDecoder().decode(bytes);
+		previewStart = start;
+		previewLength = bytes.length;
+		tailRequest = length;
+		viewingFileSize = result.data.size;
+		return null;
+	}
+
+	async function loadMoreOfFile() {
+		// Keep the lines that are in view in place while earlier ones are added above
+		const fromBottom = viewerBody ? viewerBody.scrollHeight - viewerBody.scrollTop : 0;
+		isLoadingMore = true;
+		const error = await loadTail(Math.min(tailRequest * 4, MAX_PREVIEW_BYTES));
+		isLoadingMore = false;
+
+		if (error) {
+			fileError = error;
+			return;
+		}
+		await renderFileContent();
+		if (viewerBody) viewerBody.scrollTop = viewerBody.scrollHeight - fromBottom;
+	}
+
+	async function renderFileContent() {
+		contentVersion++;
+		await tick();
+		if (contentElement && fileContent.length <= MAX_HIGHLIGHT_LENGTH) {
+			const language = getLanguageFromFilename(viewingFileName) as ShjLanguage;
+			// Line numbers would count from the start of the loaded part, not the file
+			await highlightElement(contentElement, language, undefined, {
+				hideLineNumbers: isPartialPreview
+			});
 		}
 	}
 
@@ -292,6 +370,10 @@
 		fileContent = '';
 		viewingFileName = '';
 		viewingFilePath = '';
+		viewingFileSize = 0;
+		previewStart = 0;
+		previewLength = 0;
+		tailRequest = 0;
 		fileError = null;
 		copySuccess = false;
 	}
@@ -317,25 +399,8 @@
 		}
 	}
 
+	// Dialogs handle Escape themselves (lib/Modal.svelte)
 	function handleKeydown(e: KeyboardEvent) {
-		if (showFileViewer && e.key === 'Escape') {
-			closeFileViewer();
-		}
-		if (showUploadModal && e.key === 'Escape' && (!isUploading || uploadSuccess)) {
-			closeUploadModal();
-		}
-		if (showRenameModal && e.key === 'Escape' && !isRenaming) {
-			closeRenameModal();
-		}
-		if (showMoveModal && e.key === 'Escape' && !isMoving) {
-			closeMoveModal();
-		}
-		if (showCreateFolderModal && e.key === 'Escape' && !isCreatingFolder) {
-			closeCreateFolderModal();
-		}
-		if (showFileInfoModal && e.key === 'Escape') {
-			closeFileInfoModal();
-		}
 		if (showOptionsMenu && e.key === 'Escape') {
 			showOptionsMenu = null;
 		}
@@ -565,14 +630,15 @@
 	}
 
 	async function handleDrop(e: DragEvent) {
-		if (currentPath === '') {
-			// Do not allow dropping when not in a directory
-			return;
-		}
+		// Always take the drop over, otherwise the browser navigates to the dropped file
 		e.preventDefault();
 		e.stopPropagation();
 		isDragging = false;
 		dragCounter = 0;
+		if (currentPath === '') {
+			// Do not allow dropping when not in a directory
+			return;
+		}
 
 		const items = e.dataTransfer?.items;
 		if (!items) return;
@@ -612,15 +678,25 @@
 			files.push(newFile);
 		} else if (entry.isDirectory) {
 			const dirEntry = entry as FileSystemDirectoryEntry;
-			const reader = dirEntry.createReader();
-			const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-				reader.readEntries(resolve, reject);
-			});
+			const entries = await readAllEntries(dirEntry.createReader());
 			const newPath = path ? `${path}/${entry.name}` : entry.name;
 			for (const childEntry of entries) {
 				await processEntry(childEntry, files, newPath);
 			}
 		}
+	}
+
+	// readEntries returns entries in batches (at most 100 in Chrome); an empty batch means done
+	async function readAllEntries(reader: FileSystemDirectoryReader) {
+		const entries: FileSystemEntry[] = [];
+		let batch: FileSystemEntry[];
+		do {
+			batch = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+				reader.readEntries(resolve, reject);
+			});
+			entries.push(...batch);
+		} while (batch.length > 0);
+		return entries;
 	}
 </script>
 
@@ -645,10 +721,13 @@
 			</div>
 		{/if}
 
-		{#if serveDirs.length === 0}
+		{#if !capabilities.file_serving || serveDirs.length === 0}
 			<div class="empty-state">
-				<p>No directories configured for file serving</p>
-				<p class="hint">Configure serve directories in the application settings</p>
+				<p>File browsing is turned off</p>
+				<p class="hint">
+					Start Simon with <code>--serve-dir /path/to/dir</code> (repeat it for more directories) or
+					set <code>SIMON_SERVE_DIRS=/dir1,/dir2</code> to browse, upload and manage files here.
+				</p>
 			</div>
 		{:else if currentPath === ''}
 			<!-- Show directory list when not in any directory -->
@@ -1003,22 +1082,8 @@
 
 <!-- File Viewer Modal -->
 {#if showFileViewer}
-	<div
-		class="modal-backdrop"
-		onclick={closeFileViewer}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
-	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content file-viewer-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+	<Modal class="modal-backdrop" aria-labelledby="modal-title" onclose={closeFileViewer}>
+		<div class="modal-content file-viewer-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="modal-title">
 					<span class="file-icon" aria-hidden="true">{getFileIcon(viewingFileName, false)}</span>
@@ -1029,8 +1094,14 @@
 						<button
 							class="modal-button"
 							onclick={copyToClipboard}
-							title={copySuccess ? 'Copied!' : 'Copy to clipboard'}
-							aria-label="Copy file content to clipboard"
+							title={copySuccess
+								? 'Copied!'
+								: isPartialPreview
+									? 'Copy loaded text'
+									: 'Copy to clipboard'}
+							aria-label={isPartialPreview
+								? 'Copy loaded text to clipboard'
+								: 'Copy file content to clipboard'}
 							class:success={copySuccess}
 						>
 							{#if copySuccess}
@@ -1107,7 +1178,7 @@
 				</div>
 			</div>
 
-			<div class="modal-body">
+			<div class="modal-body" bind:this={viewerBody}>
 				{#if isLoadingFile}
 					<div class="file-loading">
 						<div class="spinner"></div>
@@ -1118,33 +1189,45 @@
 						<p>Error: {fileError}</p>
 					</div>
 				{:else}
-					<div class="file-viewer-content shj-lang-{getLanguageFromFilename(viewingFileName)}">
-						{fileContent}
-					</div>
+					{#if isPartialPreview}
+						<div class="preview-notice">
+							<span>
+								Showing the {previewStart > 0 ? 'last' : 'first'}
+								{formatBytes(previewLength)} of {formatBytes(viewingFileSize)}.
+							</span>
+							{#if previewStart > 0 && tailRequest < MAX_PREVIEW_BYTES}
+								<button class="secondary-button" onclick={loadMoreOfFile} disabled={isLoadingMore}>
+									{isLoadingMore ? 'Loading...' : 'Load more'}
+								</button>
+							{/if}
+							<button class="secondary-button" onclick={() => downloadFile(viewingFilePath)}>
+								Download full file
+							</button>
+						</div>
+					{/if}
+					{#key contentVersion}
+						<div
+							class="file-viewer-content shj-lang-{getLanguageFromFilename(viewingFileName)}"
+							bind:this={contentElement}
+						>
+							{fileContent}
+						</div>
+					{/key}
 				{/if}
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 <!-- Upload Modal -->
 {#if showUploadModal}
-	<div
+	<Modal
 		class="modal-backdrop"
-		onclick={() => (!isUploading || uploadSuccess) && closeUploadModal()}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
+		aria-labelledby="upload-modal-title"
+		dismissible={!isUploading || !!uploadSuccess}
+		onclose={closeUploadModal}
 	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content upload-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="upload-modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+		<div class="modal-content upload-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="upload-modal-title">
 					<svg
@@ -1253,27 +1336,17 @@
 				{/if}
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 <!-- File Info Modal -->
 {#if showFileInfoModal && fileInfoEntry}
-	<div
+	<Modal
 		class="modal-backdrop"
-		onclick={closeFileInfoModal}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
+		aria-labelledby="file-info-modal-title"
+		onclose={closeFileInfoModal}
 	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content file-info-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="file-info-modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+		<div class="modal-content file-info-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="file-info-modal-title">
 					<svg
@@ -1466,27 +1539,18 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 <!-- Rename Modal -->
 {#if showRenameModal}
-	<div
+	<Modal
 		class="modal-backdrop"
-		onclick={closeRenameModal}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
+		aria-labelledby="rename-modal-title"
+		dismissible={!isRenaming}
+		onclose={closeRenameModal}
 	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content rename-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="rename-modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+		<div class="modal-content rename-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="rename-modal-title">
 					<svg
@@ -1536,6 +1600,7 @@
 
 				<div class="form-group">
 					<label for="rename-input">New name:</label>
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						id="rename-input"
 						type="text"
@@ -1544,6 +1609,7 @@
 						disabled={isRenaming}
 						onkeydown={(e) => e.key === 'Enter' && performRename()}
 						aria-label="New file or folder name"
+						autofocus
 					/>
 				</div>
 
@@ -1557,7 +1623,7 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 {#if isDragging && currentPath !== ''}
@@ -1586,22 +1652,13 @@
 
 <!-- Move Modal -->
 {#if showMoveModal}
-	<div
+	<Modal
 		class="modal-backdrop"
-		onclick={closeMoveModal}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
+		aria-labelledby="move-modal-title"
+		dismissible={!isMoving}
+		onclose={closeMoveModal}
 	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content move-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="move-modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+		<div class="modal-content move-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="move-modal-title">
 					<svg
@@ -1662,6 +1719,7 @@
 
 				<div class="form-group">
 					<label for="move-destination">Destination path:</label>
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						id="move-destination"
 						type="text"
@@ -1671,6 +1729,7 @@
 						onkeydown={(e) => e.key === 'Enter' && performMove()}
 						placeholder="Enter full destination path"
 						aria-label="Destination path"
+						autofocus
 					/>
 				</div>
 
@@ -1684,27 +1743,18 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 <!-- Create Folder Modal -->
 {#if showCreateFolderModal}
-	<div
+	<Modal
 		class="modal-backdrop"
-		onclick={closeCreateFolderModal}
-		role="presentation"
-		transition:fade={{ duration: 200 }}
+		aria-labelledby="create-folder-modal-title"
+		dismissible={!isCreatingFolder}
+		onclose={closeCreateFolderModal}
 	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="modal-content create-folder-modal"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-labelledby="create-folder-modal-title"
-			aria-modal="true"
-			tabindex="-1"
-			transition:fly={{ y: 50, duration: 300 }}
-		>
+		<div class="modal-content create-folder-modal">
 			<div class="modal-header">
 				<div class="modal-title" id="create-folder-modal-title">
 					<svg
@@ -1756,7 +1806,9 @@
 
 				<div class="form-group">
 					<label for="folder-name-input">Folder name:</label>
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
+						autofocus
 						id="folder-name-input"
 						type="text"
 						class="text-input"
@@ -1787,7 +1839,7 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}
 
 <!-- Hidden file inputs -->

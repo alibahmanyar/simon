@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
+	import { slide } from '$lib/transitions';
 	import { formatUptime, formatBytes, capabilities } from '$lib/utils.svelte';
 	import { gdata } from '$lib/general_socket.svelte';
 	import Chart from '$lib/Chart.svelte';
 	import CpuChart from '$lib/CpuChart.svelte';
+	import Switch from '$lib/Switch.svelte';
 
 	// $inspect(gdata).with(console.trace);
 
@@ -49,18 +50,7 @@
 					<div class="bar">
 						<div class="bar-fill" style="width: {sysData.cpu.avg_usage.toFixed(1)}%"></div>
 					</div>
-					<div class="switch-row">
-						<span class="switch-text">Show Cores</span>
-						<label class="switch">
-							<input
-								type="checkbox"
-								id="show-cores-toggle"
-								bind:checked={show_cores}
-								aria-label="Show cores"
-							/>
-							<span class="slider"></span>
-						</label>
-					</div>
+					<Switch label="Show Cores" bind:checked={show_cores} spread />
 					{#if show_cores}
 						<div id="cores" class="core-grid" transition:slide>
 							{#each sysData.cpu.usage as usage, i (i)}
@@ -160,30 +150,8 @@
 		<div class="chart-card">
 			<p class="card-title">CPU Usage</p>
 			<div class="chart-controls">
-				<div class="switch-row">
-					<span class="switch-text">Show System Average</span>
-					<label class="switch">
-						<input
-							type="checkbox"
-							id="avg-toggle"
-							bind:checked={show_avg}
-							aria-label="Show system average"
-						/>
-						<span class="slider"></span>
-					</label>
-				</div>
-				<div class="switch-row">
-					<span class="switch-text">Show All Cores</span>
-					<label class="switch">
-						<input
-							type="checkbox"
-							id="show-all-cores-toggle"
-							bind:checked={show_graph_cores}
-							aria-label="Show all cores"
-						/>
-						<span class="slider"></span>
-					</label>
-				</div>
+				<Switch label="Show System Average" bind:checked={show_avg} spread />
+				<Switch label="Show All Cores" bind:checked={show_graph_cores} spread />
 			</div>
 			<div class="chart-shell">
 				<CpuChart
@@ -243,4 +211,9 @@
 			</div>
 		</div>
 	{/if}
+{:else}
+	<div class="loading">
+		<div class="spinner"></div>
+		<p>Waiting for system info...</p>
+	</div>
 {/if}

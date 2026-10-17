@@ -17,7 +17,15 @@
 				margin: 0;
 				padding: 0;
 				box-sizing: border-box;
-				font-family: 'Inter', sans-serif;
+				font-family:
+					'Inter',
+					system-ui,
+					-apple-system,
+					'Segoe UI',
+					Roboto,
+					'Helvetica Neue',
+					Arial,
+					sans-serif;
 			}
 			:root {
 				color-scheme: dark;
@@ -109,8 +117,8 @@
 
 			input:focus {
 				outline: none;
-				border-color: rgba(74, 222, 128, 0.5);
-				box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+				border-color: var(--accent);
+				box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 			}
 
 			input::placeholder {
@@ -168,6 +176,18 @@
 			@keyframes spin {
 				to {
 					transform: rotate(360deg);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.auth-card,
+				.auth-button,
+				input {
+					transition: none;
+				}
+
+				.auth-button:hover {
+					transform: none;
 				}
 			}
 

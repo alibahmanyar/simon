@@ -1,7 +1,8 @@
 <script lang="ts">
 	import '$lib/style-docker.css';
-	import { formatBytes } from '$lib/utils.svelte';
+	import { formatBytes, capabilities } from '$lib/utils.svelte';
 	import { ddata } from '$lib/docker_socket.svelte';
+	import Modal from '$lib/Modal.svelte';
 
 	import { wsStatus } from '$lib/types';
 	import { getContainerLogs } from '$lib/api';
@@ -19,7 +20,6 @@
 
 	// Reference to logs container element
 	let logsContainer = $state<HTMLDivElement | null>(null);
-	let dashboard = $state<HTMLDivElement | null>(null);
 
 	// Function to scroll logs to bottom
 	function scrollLogsToBottom() {
@@ -32,12 +32,6 @@
 	$effect(() => {
 		if (showLogsModal && !isLoadingLogs && containerLogs.length > 0 && logsContainer) {
 			scrollLogsToBottom();
-		}
-
-		if (showLogsModal && dashboard) {
-			dashboard?.classList.add('scroll-locked');
-		} else if (dashboard) {
-			dashboard?.classList.remove('scroll-locked');
 		}
 	});
 
@@ -140,32 +134,51 @@
 	);
 </script>
 
-<div class="dashboard" bind:this={dashboard}>
-	{#if ddata.status === wsStatus.CONNECTED && (ddata.data?.containers?.length ?? 0) > 0}
+<div class="dashboard">
+	{#if !capabilities.docker || ddata.data === null}
+		<div class="error-container">
+			<p>Docker Not Available</p>
+			<p>
+				Simon can't reach the Docker API. Make sure Docker is running and the user running Simon can
+				access <code>/var/run/docker.sock</code> (for example by being in the docker group). When
+				Simon runs in a container, mount the socket with
+				<code>-v /var/run/docker.sock:/var/run/docker.sock:ro</code>.
+			</p>
+		</div>
+	{:else if (ddata.data?.containers?.length ?? 0) > 0}
+		<!-- Containers stay on screen through a reconnect, marked as possibly stale -->
 		<div class="card">
 			<p class="card-title">Docker Containers</p>
+			{#if ddata.status !== wsStatus.CONNECTED}
+				<p class="stale-note" role="status">Reconnecting… container data may be out of date.</p>
+			{/if}
 
 			<div class="container-filters">
 				<input
 					type="text"
 					class="container-search"
 					placeholder="Search containers..."
+					aria-label="Search containers"
 					bind:value={searchTerm}
 				/>
 				<button
 					class="container-filter-btn {activeFilter === 'all' ? 'active' : ''}"
+					aria-pressed={activeFilter === 'all'}
 					onclick={() => setFilter('all')}>All</button
 				>
 				<button
 					class="container-filter-btn {activeFilter === 'running' ? 'active' : ''}"
+					aria-pressed={activeFilter === 'running'}
 					onclick={() => setFilter('running')}>Running</button
 				>
 				<button
 					class="container-filter-btn {activeFilter === 'exited' ? 'active' : ''}"
+					aria-pressed={activeFilter === 'exited'}
 					onclick={() => setFilter('exited')}>Exited</button
 				>
 				<button
 					class="container-filter-btn {activeFilter === 'created' ? 'active' : ''}"
+					aria-pressed={activeFilter === 'created'}
 					onclick={() => setFilter('created')}>Created</button
 				>
 			</div>
@@ -263,54 +276,39 @@
 				</div>
 			{/if}
 		</div>
-	{:else if ddata.data === null}
-		<div class="error-container">
-			<p>Docker Not Available</p>
-			<p>
-				Make sure docker is installed and accessible (user must be in docker group and should have
-				access to /var/run/docker.sock)
-			</p>
-		</div>
-	{:else if ddata.status === wsStatus.CONNECTED && ddata.data?.containers?.length === 0}
+	{:else if ddata.data?.containers}
 		<div class="info-item">
 			<p>No Docker containers found on system</p>
-		</div>
-	{:else if ddata.status === wsStatus.INIT}
-		<div class="loading">
-			<div class="spinner"></div>
-			<p>Initializing web socket...</p>
-		</div>
-	{:else if ddata.status === wsStatus.WAITING}
-		<div class="loading">
-			<div class="spinner"></div>
-			<p>Waiting for container info...</p>
 		</div>
 	{:else if ddata.status === wsStatus.DISCONNECTED || ddata.status === wsStatus.ERROR}
 		<div class="error-container">
 			<p>Connection failed</p>
-			<p>Could not connect to the data service. Please check your network connection.</p>
+			<p>Could not reach the Simon server. Retrying automatically…</p>
 		</div>
 	{:else}
-		<div class="error-container">
-			<p>Docker Not Available</p>
-			<p>
-				Make sure docker is installed and accessible (user must be in docker group and should have
-				access to /var/run/docker.sock)
-			</p>
+		<div class="loading">
+			<div class="spinner"></div>
+			<p>Waiting for container info...</p>
 		</div>
 	{/if}
 </div>
 
 <!-- Logs Modal -->
 {#if showLogsModal && selectedContainer}
-	<div class="logs-modal-overlay">
+	<Modal class="logs-modal-overlay" aria-labelledby="logs-modal-title" onclose={closeLogsModal}>
 		<div class="logs-modal">
 			<div class="logs-modal-header">
 				<div class="logs-modal-title-section">
-					<h3>Logs: {selectedContainer.name}</h3>
-					<button class="logs-reload-button" onclick={reloadLogs} title="Reload logs"> ↻ </button>
+					<h3 id="logs-modal-title">Logs: {selectedContainer.name}</h3>
+					<button
+						class="logs-reload-button"
+						onclick={reloadLogs}
+						title="Reload logs"
+						aria-label="Reload logs">↻</button
+					>
 				</div>
-				<button class="logs-close-button" onclick={closeLogsModal}>×</button>
+				<button class="logs-close-button" onclick={closeLogsModal} aria-label="Close logs">×</button
+				>
 			</div>
 			<div class="logs-modal-content" bind:this={logsContainer}>
 				{#if isLoadingLogs}
@@ -332,5 +330,5 @@
 				{/if}
 			</div>
 		</div>
-	</div>
+	</Modal>
 {/if}

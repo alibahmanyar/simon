@@ -4,13 +4,20 @@
 		createChart,
 		ColorType,
 		AreaSeries,
+		type AutoscaleInfo,
 		type IChartApi,
 		type ISeriesApi
 	} from 'lightweight-charts';
-	import { formatBytes, formatBytesPerSecond, types2names } from '$lib/utils.svelte';
+	import {
+		formatBytes,
+		formatBytesPerSecond,
+		isVirtualInterface,
+		types2names
+	} from '$lib/utils.svelte';
 	import { getHistoricalData } from '$lib/api';
 	import type { HistoricalSeries } from '$lib/types';
 	import { getChartColors } from '$lib/theme.svelte';
+	import Switch from '$lib/Switch.svelte';
 	let resolution = $state('minute');
 	let timespan = $state(3600);
 	let showAll = $state(false); // Add state for showing less important charts
@@ -51,13 +58,7 @@
 		if (
 			(series.name.includes('overlay') && series.cat == 'disk') ||
 			(series.name.includes('/boot') && series.cat == 'disk') ||
-			(series.name.includes('veth') && series.cat == 'net') ||
-			(series.name.includes('br-') && series.cat == 'net') ||
-			(series.name.includes('vnet') && series.cat == 'net') ||
-			(series.name.includes('docker') && series.cat == 'net') ||
-			(series.name.includes('tun') && series.cat == 'net') ||
-			(series.name.includes('wg') && series.cat == 'net') ||
-			(series.name == 'lo' && series.cat == 'net')
+			(series.cat == 'net' && isVirtualInterface(series.name))
 		) {
 			return true;
 		}
@@ -106,24 +107,28 @@
 		return `${t0} - ${name}`;
 	}
 
+	const percentTypes = ['swap_usage', 'cpu_usage', 'mem_usage', 'disk_usage'];
+	const byteTypes = [
+		'rx',
+		'tx',
+		'rx_rate',
+		'tx_rate',
+		'total_read',
+		'total_write',
+		'read_rate',
+		'write_rate'
+	];
+
 	function getPriceFormat(stype: string) {
-		if (['swap_usage', 'cpu_usage', 'mem_usage', 'disk_usage'].includes(stype)) {
+		if (percentTypes.includes(stype)) {
+			// Not the built-in 'percent' type: it reads precision as a scale factor, which
+			// rounds values to the nearest half and prints the half as ".1"
 			return {
-				type: 'percent' as const,
-				precision: 2
+				type: 'custom' as const,
+				formatter: (price: number) => `${price.toFixed(1)}%`,
+				minMove: 0.1
 			};
-		} else if (
-			[
-				'rx',
-				'tx',
-				'rx_rate',
-				'tx_rate',
-				'total_read',
-				'total_write',
-				'read_rate',
-				'write_rate'
-			].includes(stype)
-		) {
+		} else if (byteTypes.includes(stype)) {
 			return {
 				type: 'volume' as const
 			};
@@ -133,6 +138,24 @@
 				precision: 2
 			};
 		}
+	}
+
+	// Every metric here is non-negative. Starting the scale at zero gives evenly spaced,
+	// distinct axis labels and keeps small wobbles from filling the whole chart; the
+	// floor gives an all-zero series (idle disk, unused swap) a sensible scale.
+	function autoscaleFromZero(stype: string) {
+		const floor = percentTypes.includes(stype) ? 1 : byteTypes.includes(stype) ? 1024 : 0.1;
+		return (original: () => AutoscaleInfo | null): AutoscaleInfo | null => {
+			const info = original();
+			if (!info?.priceRange) return info;
+			return {
+				...info,
+				priceRange: {
+					minValue: Math.min(0, info.priceRange.minValue),
+					maxValue: Math.max(floor, info.priceRange.maxValue)
+				}
+			};
+		};
 	}
 
 	async function fetchHistoricalData(): Promise<HistoricalSeries[]> {
@@ -233,16 +256,18 @@
 				seriesData[i].cat === 'net' ||
 				(seriesData[i].cat === 'disk' && seriesData[i].stype !== 'disk_usage')
 			) {
+				// Wrapped so only the price is passed: the chart formats axis labels with
+				// values.map(priceFormatter), whose index argument would land in `decimals`
 				if (seriesData[i].stype.toLowerCase().includes('rate')) {
 					chart.applyOptions({
 						localization: {
-							priceFormatter: formatBytesPerSecond
+							priceFormatter: (price: number) => formatBytesPerSecond(price)
 						}
 					});
 				} else {
 					chart.applyOptions({
 						localization: {
-							priceFormatter: formatBytes
+							priceFormatter: (price: number) => formatBytes(price)
 						}
 					});
 				}
@@ -255,7 +280,8 @@
 				lineColor: color.line,
 				topColor: color.top,
 				bottomColor: color.bottom,
-				priceFormat: getPriceFormat(currentSeries.stype)
+				priceFormat: getPriceFormat(currentSeries.stype),
+				autoscaleInfoProvider: autoscaleFromZero(currentSeries.stype)
 			});
 
 			seriesDataseries.setData(formatChartData(currentSeries));
@@ -318,13 +344,7 @@
 			</select>
 		</div>
 
-		<label>
-			<span>Show All</span>
-			<label class="switch">
-				<input type="checkbox" bind:checked={showAll} onchange={refreshCharts} />
-				<span class="slider"></span>
-			</label>
-		</label>
+		<Switch label="Show All" bind:checked={showAll} onchange={refreshCharts} />
 	</div>
 
 	{#if isLoading}

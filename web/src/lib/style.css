@@ -8,14 +8,34 @@
 	font-display: swap;
 }
 
+@font-face {
+	font-family: 'Roboto Mono';
+	src:
+		url('./RobotoMono-Regular.woff2') format('woff2'),
+		url('./RobotoMono-Regular.woff') format('woff');
+	font-weight: normal;
+	font-style: normal;
+	font-display: swap;
+}
+
 * {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
-	font-family: 'Inter';
+	font-family: var(--font-sans);
+}
+
+code {
+	font-family: var(--font-mono);
 }
 
 :root {
+	--font-sans:
+		'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--font-mono:
+		'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+	/* Glow around a focused field, paired with an --accent border */
+	--focus-ring: color-mix(in srgb, var(--accent) 35%, transparent);
 	color-scheme: dark;
 	/* RGB triplet for translucent overlays, borders and dividers: rgba(var(--fg-rgb), 0.1) */
 	--fg-rgb: 255, 255, 255;
@@ -98,13 +118,6 @@ body {
 	padding: 2rem;
 	min-height: 100vh;
 	background: linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%);
-}
-
-.scroll-locked {
-	overflow: hidden;
-	position: fixed;
-	width: 100%;
-	height: 100%;
 }
 
 .topbar {
@@ -274,6 +287,68 @@ a.icon-btn:hover {
 
 	.icon-btn-label {
 		display: none;
+	}
+}
+
+/* Shown under the top bar while the live connection is down */
+.conn-banner {
+	margin: 0 -2rem;
+	padding: 0.45rem 2rem;
+	text-align: center;
+	font-size: 0.85rem;
+	color: var(--text);
+	background: color-mix(in srgb, var(--warning) 18%, var(--bg-alt));
+	border-top: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+/* Native <dialog> covering the viewport, see lib/Modal.svelte. Zero specificity so each
+   overlay class (.modal-backdrop, .dialog-backdrop, ...) keeps its own look. */
+:where(dialog.modal-root) {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--text);
+	overscroll-behavior: contain;
+}
+
+:where(dialog.modal-root[open]) {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+dialog.modal-root:not([open]) {
+	display: none;
+}
+
+dialog.modal-root::backdrop {
+	background: transparent;
+}
+
+dialog.modal-root[open] {
+	animation: fadeIn 0.15s ease-out;
+}
+
+dialog.modal-root[open] > * {
+	animation: modalIn 0.2s ease-out;
+}
+
+@keyframes modalIn {
+	from {
+		opacity: 0;
+		transform: translateY(16px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
 	}
 }
 
@@ -525,7 +600,7 @@ a.icon-btn:hover {
 	gap: 0.5rem;
 }
 
-.switch-row {
+.switch-row.spread {
 	justify-content: space-between;
 	min-width: 220px;
 }
@@ -590,6 +665,15 @@ input:checked + .slider:before {
 	transform: translateX(22px);
 }
 
+label.switch-row {
+	cursor: pointer;
+}
+
+.switch input:focus-visible + .slider {
+	outline: 2px solid var(--blue);
+	outline-offset: 2px;
+}
+
 .chart-shell {
 	min-height: 40vh;
 }
@@ -615,7 +699,7 @@ input:checked + .slider:before {
 	width: 100%;
 	max-width: 300px;
 	appearance: none;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e1e1e3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+	background-image: var(--select-arrow);
 	background-repeat: no-repeat;
 	background-position: right 10px center;
 	background-size: 16px;
@@ -623,8 +707,8 @@ input:checked + .slider:before {
 }
 
 .chart-controls select:focus {
-	border-color: rgba(74, 222, 128, 0.5);
-	box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .chart-controls select:hover {
@@ -734,4 +818,21 @@ input:checked + .slider:before {
 .no-data p:first-child {
 	font-size: 18px;
 	font-weight: 500;
+}
+
+/* Svelte transitions are handled in lib/transitions.ts */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+
+	/* Keep loading spinners: without them a wait looks like a hang */
+	.spinner {
+		animation-duration: 1.5s !important;
+		animation-iteration-count: infinite !important;
+	}
 }

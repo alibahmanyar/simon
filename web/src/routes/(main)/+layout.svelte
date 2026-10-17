@@ -17,21 +17,26 @@
 	import TopBar from '$lib/TopBar.svelte';
 
 	let errorMsg = $state('');
-	let error = $state(false);
+	let capsLoaded = $state(false);
+	let now = $state(Date.now());
+
+	async function loadCapabilities() {
+		const data = await updateCapabilities();
+		if (!data.success) {
+			console.error('Failed to fetch capabilities:', data);
+			errorMsg = data.error || 'Unknown error';
+			return;
+		}
+		errorMsg = '';
+		capsLoaded = true;
+		// Only open Docker WebSocket if Docker capability is available
+		if (capabilities.docker) {
+			setTimeout(docker_ws_open, 2);
+		}
+	}
 
 	onMount(() => {
-		updateCapabilities().then((data) => {
-			if (!data.success) {
-				console.error('Failed to fetch capabilities:', data);
-				errorMsg = data.error || 'Unknown error';
-				error = true;
-				return;
-			}
-			// Only open Docker WebSocket if Docker capability is available
-			if (capabilities.docker) {
-				setTimeout(docker_ws_open, 2);
-			}
-		});
+		loadCapabilities();
 		setTimeout(general_ws_open, 2);
 	});
 
@@ -39,11 +44,36 @@
 		general_ws_close();
 		docker_ws_close();
 	});
+
+	// The server may be down on first load; keep trying until it answers
+	$effect(() => {
+		if (!errorMsg) return;
+		const timer = setInterval(loadCapabilities, 5000);
+		return () => clearInterval(timer);
+	});
+
+	// Pages keep showing their last data while the connection is down; the banner says so
+	let offline = $derived(gdata.status === wsStatus.DISCONNECTED || gdata.status === wsStatus.ERROR);
+
+	$effect(() => {
+		if (!offline) return;
+		now = Date.now();
+		const timer = setInterval(() => (now = Date.now()), 1000);
+		return () => clearInterval(timer);
+	});
+
+	/** @param {number} ms */
+	function formatAge(ms) {
+		const seconds = Math.max(0, Math.round(ms / 1000));
+		if (seconds < 60) return `${seconds} s`;
+		if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
+		return `${Math.floor(seconds / 3600)} h`;
+	}
 </script>
 
 <TopBar>
 	{#snippet tabs()}
-		{#if !error && gdata.status === wsStatus.CONNECTED}
+		{#if capsLoaded}
 			<a class="tab" class:active={page.url.pathname.endsWith('/')} href="./">Overview</a>
 			{#if capabilities?.disk}
 				<a class="tab" class:active={page.url.pathname.endsWith('/storage')} href="storage"
@@ -56,15 +86,12 @@
 				>
 			{/if}
 			<!-- <a class="tab" class:active={page.url.pathname==='/processes'} href="/processes">Processes</a> -->
-			{#if capabilities?.docker}
-				<a class="tab" class:active={page.url.pathname.endsWith('/docker')} href="docker">Docker</a>
-			{/if}
+			<!-- Docker and Files stay listed when unavailable; their pages explain how to enable them -->
+			<a class="tab" class:active={page.url.pathname.endsWith('/docker')} href="docker">Docker</a>
 			<a class="tab" class:active={page.url.pathname.endsWith('/graphs')} href="graphs"
 				>Historical Charts</a
 			>
-			{#if capabilities?.file_serving}
-				<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
-			{/if}
+			<a class="tab" class:active={page.url.pathname.endsWith('/files')} href="files">Files</a>
 		{/if}
 	{/snippet}
 	{#snippet actions()}
@@ -86,31 +113,36 @@
 			<span class="icon-btn-label">Alerts</span>
 		</a>
 	{/snippet}
+	{#snippet banner()}
+		<!-- Live region exists up front so screen readers announce what appears in it -->
+		<div role="status">
+			{#if capsLoaded && offline}
+				<div class="conn-banner">
+					{#if gdata.lastMessageAt}
+						Connection lost, reconnecting…
+						<span aria-hidden="true">
+							Showing data from {formatAge(now - gdata.lastMessageAt)} ago.
+						</span>
+					{:else}
+						Can't reach the server, retrying…
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/snippet}
 </TopBar>
 <div class="dashboard">
-	{#if !error}
-		{#if gdata.status === wsStatus.CONNECTED}
-			{@render children()}
-		{:else if gdata.status === wsStatus.INIT}
-			<div class="loading">
-				<div class="spinner"></div>
-				<p>Initializing web socket...</p>
-			</div>
-		{:else if gdata.status === wsStatus.WAITING}
-			<div class="loading">
-				<div class="spinner"></div>
-				<p>Waiting for system info...</p>
-			</div>
-		{:else if gdata.status === wsStatus.DISCONNECTED || gdata.status === wsStatus.ERROR}
-			<div class="error-container">
-				<p>Connection failed</p>
-				<p>Could not connect to the data service. Please check your network connection.</p>
-			</div>
-		{/if}
+	{#if capsLoaded}
+		{@render children()}
+	{:else if errorMsg}
+		<div class="error-container" role="alert">
+			<p>Can't reach Simon</p>
+			<p>{errorMsg}. Retrying automatically…</p>
+		</div>
 	{:else}
-		<div class="error-container">
-			<p>Connection error:</p>
-			<p>{errorMsg}</p>
+		<div class="loading">
+			<div class="spinner"></div>
+			<p>Connecting…</p>
 		</div>
 	{/if}
 </div>

@@ -103,43 +103,58 @@ export function url(s: string) {
 	return getBaseUrl() + '/' + s;
 }
 
-// Format bytes to human readable format
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+
+// Format bytes to human readable format, e.g. "1.0 GiB"
 export function formatBytes(bytes: number, decimals: number = 1) {
 	bytes = Math.floor(bytes);
-	if (bytes <= 0) return '0 Bytes';
+	if (!(bytes > 0)) return '0 B';
 
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1);
+	if (i === 0) return `${bytes} B`;
 
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+	// Fixed precision so values line up and don't change width as they update
+	return `${(bytes / 1024 ** i).toFixed(Math.max(0, decimals))} ${BYTE_UNITS[i]}`;
 }
 
+// Format a duration in seconds, e.g. "3d 4h 12m"
 export function formatUptime(seconds: number): string {
 	const days = Math.floor(seconds / 86400);
-	seconds %= 86400;
-	const hours = Math.floor(seconds / 3600);
-	seconds %= 3600;
-	const minutes = Math.floor(seconds / 60);
-	seconds %= 60;
-	if (days > 0) {
-		return `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-	}
-	return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+	const hours = Math.floor((seconds % 86400) / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+	if (hours > 0) return `${hours}h ${minutes}m`;
+	return `${minutes}m ${Math.floor(seconds % 60)}s`;
 }
 
 // Format bytes per second with appropriate unit
 export function formatBytesPerSecond(bytesPerSecond: number, decimals: number = 1) {
-	bytesPerSecond = Math.floor(bytesPerSecond);
-	if (bytesPerSecond <= 0) return '0 B/s';
+	return `${formatBytes(bytesPerSecond, decimals)}/s`;
+}
 
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'];
+// Webhook headers are edited as one "Name: value" per line. Only the first colon
+// separates, so values such as URLs keep theirs.
+export function parseHeaders(text: string) {
+	const headers: Record<string, string> = {};
+	for (const line of text.split('\n')) {
+		const colon = line.indexOf(':');
+		if (colon <= 0) continue;
+		const key = line.slice(0, colon).trim();
+		const value = line.slice(colon + 1).trim();
+		if (key && value) headers[key] = value;
+	}
+	return headers;
+}
 
-	const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
+export function formatHeaders(headers: Record<string, string>) {
+	return Object.entries(headers)
+		.map(([key, value]) => `${key}: ${value}`)
+		.join('\n');
+}
 
-	return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+// Loopback and container/VM plumbing, hidden unless the user asks to see every interface
+const VIRTUAL_INTERFACE_PREFIXES = ['veth', 'docker', 'br-', 'vnet'];
+
+export function isVirtualInterface(name: string) {
+	return name === 'lo' || VIRTUAL_INTERFACE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
