@@ -90,13 +90,14 @@
 
 	$effect(() => {
 		if (data.length > 0) {
-			// pre pad all arays to maxDataPoints
+			// pre pad all arays to maxDataPoints; null leaves a gap where there is
+			// no history yet instead of drawing a drop to zero
 			let data_padded = Array(maxDataPoints - data.length)
-				.fill(0)
+				.fill(null)
 				.concat(data);
 			let cores_padded = tcores.map((core: number[]) =>
 				Array(maxDataPoints - core.length)
-					.fill(0)
+					.fill(null)
 					.concat(core)
 			);
 

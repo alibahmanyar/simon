@@ -90,12 +90,13 @@
 
 	$effect(() => {
 		if (data.length > 0) {
-			// pre pad all arays to maxDataPoints
+			// pre pad all arays to maxDataPoints; null leaves a gap where there is
+			// no history yet instead of drawing a drop to zero
 			let data_padded = [];
 			for (let i = 0; i < data.length; i++) {
 				data_padded.push(
 					Array(maxDataPoints - data[i].length)
-						.fill(0)
+						.fill(null)
 						.concat(data[i])
 				);
 			}
