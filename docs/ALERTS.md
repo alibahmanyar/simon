@@ -38,7 +38,7 @@ Simon supports notification templates for popular platforms. These templates pro
 - **Matrix** - Decentralized communication protocol
 - **Custom Webhook** - Configure a custom webhook with full control
 
-Use the `{notif_msg}` placeholder in your URL or request body to insert the alert message.
+Use the `{notif_msg}` placeholder in your URL or request body to insert the alert message. The `{txn_id}` placeholder in the URL is replaced with a value that is unique for every notification, for APIs that drop requests reusing a transaction ID (the Matrix template uses it).
 
 ### Step 3: Configure Alert Rules
 
@@ -105,6 +105,8 @@ Decentralized, open-source communication protocol.
 - Homeserver: Your Matrix homeserver URL (e.g., `https://matrix.org`)
 - Room ID: The room where notifications will be sent (e.g., `!abc123:matrix.org`)
 - Access Token: Your Matrix access token
+
+Matrix methods created with an older version of Simon have a fixed number after `/send/m.room.message/` in their URL. The homeserver treats every notification after the first as a duplicate and drops it, so replace that number with `{txn_id}` or recreate the method from the template.
 
 ### Custom Webhook
 

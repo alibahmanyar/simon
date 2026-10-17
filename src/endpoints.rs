@@ -607,6 +607,8 @@ pub async fn add_alert(
         }
     };
     alert.firing = false;
+    alert.notify_pending = false;
+    alert.delivery_error = None;
 
     if let Err(msg) = alert.validate() {
         return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::error(msg))).into_response();

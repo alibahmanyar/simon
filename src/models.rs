@@ -190,8 +190,15 @@ pub struct Alert {
     pub operator: String,
     pub time_window: i64,
     pub enabled: bool,
+    /// Whether the alert condition currently holds
     pub firing: bool,
     pub notif_methods: Vec<String>,
+    /// The user hasn't been notified of the current `firing` state yet
+    #[serde(default)]
+    pub notify_pending: bool,
+    /// Why the last notification attempt failed; cleared once one goes through
+    #[serde(default)]
+    pub delivery_error: Option<String>,
 }
 
 impl Alert {

@@ -67,7 +67,9 @@ pub async fn check_alerts(db_path: &str) {
             };
             trace!("Alert firing: {}", is_firing);
 
-            // If alert state has changed, notify and then persist the new state
+            // The condition state is saved whether or not notifications get through,
+            // so the UI shows a firing alert even when delivery fails
+            let mut changed = false;
             if is_firing != alert.firing {
                 alert.firing = is_firing;
                 if is_firing {
@@ -75,11 +77,19 @@ pub async fn check_alerts(db_path: &str) {
                 } else {
                     info!("Alert relief: {:?}", alert);
                 }
-                let notification_message = format_alert_message(&alert, is_firing);
+                // Pending means the user's last known state differs from the current one,
+                // so flipping back before anything was delivered cancels out.
+                alert.notify_pending = !alert.notify_pending;
+                changed = true;
+            }
+
+            if alert.notify_pending {
+                let notification_message = format_alert_message(&alert, alert.firing);
 
                 // Send notifications to all configured methods for this alert
                 let mut targets = 0;
                 let mut delivered = 0;
+                let mut errors = Vec::new();
                 for method_id in &alert.notif_methods {
                     if let Some(method) = method_map.get(method_id)
                         && method.enabled
@@ -87,22 +97,34 @@ pub async fn check_alerts(db_path: &str) {
                         targets += 1;
                         match send_notification(method, &notification_message).await {
                             Ok(()) => delivered += 1,
-                            Err(e) => error!("Failed to send notification: {}", e),
+                            Err(e) => {
+                                error!("Failed to send notification via {}: {}", method.name, e);
+                                errors.push(format!("{}: {}", method.name, e));
+                            }
                         }
                     }
                 }
 
-                // If every delivery failed keep the old state so the next check retries.
+                // If every delivery failed keep it pending so the next check retries.
                 if targets > 0 && delivered == 0 {
                     warn!(
                         "No notification delivered for alert {}, will retry",
                         alert.id
                     );
-                    continue;
+                } else {
+                    alert.notify_pending = false;
+                    changed = true;
                 }
-                if let Err(e) = update_alert_state(&db, &alert) {
-                    error!("Failed to update alert state: {}", e);
+
+                let delivery_error = (!errors.is_empty()).then(|| errors.join("; "));
+                if delivery_error != alert.delivery_error {
+                    alert.delivery_error = delivery_error;
+                    changed = true;
                 }
+            }
+
+            if changed && let Err(e) = update_alert_state(&db, &alert) {
+                error!("Failed to update alert state: {}", e);
             }
         }
     }
@@ -219,6 +241,8 @@ fn update_alert_state(db: &Database, alert: &Alert) -> Result<(), String> {
     for a in &mut alerts {
         if a.id == alert.id {
             a.firing = alert.firing;
+            a.notify_pending = alert.notify_pending;
+            a.delivery_error = alert.delivery_error.clone();
             break;
         }
     }
@@ -311,8 +335,10 @@ fn render_body(template: &str, message: &str) -> String {
 async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Result<(), String> {
     let client = build_http_client()?;
 
-    // Replace placeholder with actual message
-    let url = webhook.url.replace("{notif_msg}", &url_encode(message));
+    let url = webhook
+        .url
+        .replace("{notif_msg}", &url_encode(message))
+        .replace("{txn_id}", &uuid::Uuid::new_v4().to_string());
 
     // Prepare headers
     let mut headers = reqwest::header::HeaderMap::new();
@@ -342,16 +368,29 @@ async fn send_webhook_notification(webhook: &WebHookNotif, message: &str) -> Res
     let response = request_builder
         .send()
         .await
-        .map_err(|e| format!("Failed to send webhook request: {:?}", e))?;
+        .map_err(describe_request_error)?;
 
     if response.status().is_success() {
         info!("Webhook notification sent successfully");
         Ok(())
     } else {
-        Err(format!(
-            "Webhook request failed with status: {}",
-            response.status()
-        ))
+        Err(format!("server responded {}", response.status()))
+    }
+}
+
+/// Describes a failed request by its outer error and root cause, leaving out the
+/// URL since it can carry tokens and the message is shown in the UI.
+fn describe_request_error(err: reqwest::Error) -> String {
+    let err = err.without_url();
+    let mut root_cause = None;
+    let mut source = std::error::Error::source(&err);
+    while let Some(cause) = source {
+        root_cause = Some(cause.to_string());
+        source = cause.source();
+    }
+    match root_cause {
+        Some(cause) => format!("{}: {}", err, cause),
+        None => err.to_string(),
     }
 }
 
