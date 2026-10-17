@@ -10,7 +10,12 @@
 	);
 </script>
 
-{#if disks && disks.length > 0}
+{#if !disks}
+	<div class="loading">
+		<div class="spinner"></div>
+		<p>Waiting for system info...</p>
+	</div>
+{:else if disks.length > 0}
 	<div class="card">
 		<div id="disk-info" class="info-grid-1">
 			{#if disks.length > 0}

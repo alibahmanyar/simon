@@ -32,7 +32,7 @@ export interface WebSocketStoreOptions<T> {
 
 export interface WebSocketStore<T> {
 	/** Reactive state object — import and read in components */
-	store: { data: T | null; status: wsStatus };
+	store: { data: T | null; status: wsStatus; lastMessageAt: number | null };
 	/** Open the WebSocket connection. Safe to call multiple times. */
 	open: () => void;
 	/** Close the WebSocket connection and cancel any pending reconnects. */
@@ -48,7 +48,9 @@ export function createWebSocketStore<T>(
 
 	const store = $state({
 		data: options.initialData as T | null,
-		status: wsStatus.INIT as wsStatus
+		status: wsStatus.INIT as wsStatus,
+		/** Client time (ms) of the last message, to tell how stale the data is */
+		lastMessageAt: null as number | null
 	});
 
 	let ws: WebSocket | null = null;
@@ -157,6 +159,7 @@ export function createWebSocketStore<T>(
 			} else {
 				store.data = parsed;
 			}
+			store.lastMessageAt = Date.now();
 		};
 	}
 

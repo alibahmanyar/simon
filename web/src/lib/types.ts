@@ -41,6 +41,8 @@ export enum wsStatus {
 
 export interface SystemData {
 	t: number;
+	/** Client time (ms) the sample arrived; finer than `t` for computing rates */
+	receivedAt?: number;
 	sys: SystemInfo;
 	mem: MemoryInfo;
 	cpu: CPUInfo;
@@ -81,12 +83,6 @@ export interface NetworkInterface {
 	tx: number;
 	receiveRate?: number;
 	transmitRate?: number;
-}
-
-export interface NetworkStats {
-	received: number;
-	transmitted: number;
-	time: number;
 }
 
 interface DiskInfo {
@@ -160,6 +156,8 @@ export interface Alert {
 	time_window: number;
 	firing: boolean;
 	notif_methods: string[];
+	notify_pending?: boolean;
+	delivery_error?: string | null;
 }
 
 export interface FileEntry {

@@ -13,6 +13,7 @@ const generalSocket = createWebSocketStore<GeneralStoreData>('ws/g', {
 	initialData: { current: null, prevDataPoints: [] },
 	onMessage: (parsed: unknown, previous: GeneralStoreData | null) => {
 		const systemData = parsed as SystemData;
+		systemData.receivedAt = Date.now();
 		const prev = previous ?? { current: null, prevDataPoints: [] };
 		const prevDataPoints = [...prev.prevDataPoints];
 
