@@ -11,6 +11,27 @@ import type {
 } from './types';
 
 /**
+ * Pick the most useful message out of a failed response body. API endpoints
+ * answer with JSON `{ error }`, a few others with plain text.
+ */
+function errorMessage(status: number, body: string): string {
+	try {
+		const parsed = JSON.parse(body);
+		if (typeof parsed?.error === 'string' && parsed.error) return parsed.error;
+	} catch {
+		// Not JSON; fall back to the text itself
+	}
+	const text = body.trim();
+	if (text && text.length <= 200 && !text.startsWith('<')) return text;
+	return `Request failed (HTTP ${status})`;
+}
+
+async function responseError(response: Response): Promise<string> {
+	const body = await response.text().catch(() => '');
+	return errorMessage(response.status, body);
+}
+
+/**
  * Base fetch function with standardized error handling
  */
 async function apiFetch<T>(
@@ -23,7 +44,7 @@ async function apiFetch<T>(
 		if (!response.ok) {
 			return {
 				success: false,
-				error: `HTTP error! Status: ${response.status}`
+				error: await responseError(response)
 			};
 		}
 
@@ -145,7 +166,7 @@ export async function getContainerLogs(
 		if (!response.ok) {
 			return {
 				success: false,
-				error: `Failed to fetch logs: ${response.status}`
+				error: `Failed to fetch logs: ${await responseError(response)}`
 			};
 		}
 
@@ -192,7 +213,7 @@ export async function getFileContent(
 		if (!response.ok) {
 			return {
 				success: false,
-				error: `Failed to fetch file content: ${response.status}`
+				error: `Failed to fetch file content: ${await responseError(response)}`
 			};
 		}
 
@@ -202,6 +223,64 @@ export async function getFileContent(
 			success: true,
 			data: text
 		};
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to load file content'
+		};
+	}
+}
+
+/**
+ * Get up to `length` bytes from the end of a file, without downloading the rest.
+ * `start` is the offset of the first returned byte and `size` the full file size.
+ */
+export async function getFileTail(
+	path: string,
+	length: number
+): Promise<
+	| { success: true; data: { bytes: Uint8Array; start: number; size: number } }
+	| { success: false; error: string }
+> {
+	try {
+		const response = await fetch(
+			url(`api/files/download?path=${encodeURIComponent(path)}&inline=true`),
+			{ headers: { Range: `bytes=-${length}` } }
+		);
+
+		if (!response.ok) {
+			return {
+				success: false,
+				error: `Failed to fetch file content: ${await responseError(response)}`
+			};
+		}
+
+		// e.g. "bytes 1000-1999/2000"
+		const range = response.headers.get('Content-Range')?.match(/(\d+)-\d+\/(\d+)/);
+		if (response.status === 206 && range) {
+			const bytes = new Uint8Array(await response.arrayBuffer());
+			return { success: true, data: { bytes, start: Number(range[1]), size: Number(range[2]) } };
+		}
+
+		// Range was ignored: keep only the start of the file instead of reading all of it
+		const reader = response.body?.getReader();
+		const chunks: Uint8Array[] = [];
+		let received = 0;
+		while (reader && received < length) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			chunks.push(value);
+			received += value.length;
+		}
+		await reader?.cancel();
+		const bytes = new Uint8Array(received);
+		let offset = 0;
+		for (const chunk of chunks) {
+			bytes.set(chunk, offset);
+			offset += chunk.length;
+		}
+		const size = Number(response.headers.get('Content-Length')) || received;
+		return { success: true, data: { bytes: bytes.subarray(0, length), start: 0, size } };
 	} catch (error) {
 		return {
 			success: false,
@@ -253,7 +332,10 @@ export async function uploadFiles(
 						resolve({ success: false, error: 'Invalid response from server' });
 					}
 				} else {
-					resolve({ success: false, error: `Upload failed with status ${xhr.status}` });
+					resolve({
+						success: false,
+						error: `Upload failed: ${errorMessage(xhr.status, xhr.responseText)}`
+					});
 				}
 			});
 
